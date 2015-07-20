@@ -31,10 +31,14 @@ class SPIFlashLogger {
     _enables = 0;       // Counting semaphore for _enable/_disable
     _next_sec_id = 1;   // The next sector we should write to
 
-    constructor(serializer, start = null, end = null, flash = null) {
-        // Set the flash and serializer references
-        _flash = flash ? flash : hardware.spiflash;
-        _serializer = serializer;
+    constructor(start = null, end = null, flash = null, serializer = null) {
+        // Set the SPIFlash, or try and set with hardware.spiflash
+        try { _flash = flash ? flash : hardware.spiflash; }
+        catch (e) { throw "Missing requirement (hardware.spiflash). For more information see: https://github.com/electricimp/spiflashlogger"; }
+
+        // Set the serizlier, or try and set with Serializer
+        try { _serializer = serializer ? serializer : Serializer; }
+        catch (e) { throw "Missing requirement (Serializer). For more information see: https://github.com/electricimp/spiflashlogger"; }
 
         // Get the size of the flash
         _enable();
@@ -109,7 +113,7 @@ class SPIFlashLogger {
         _disable();
     }
 
-    function readSync(callback) {
+    function readSync(onData, onComplete = null) {
         local serialised_object = blob();
 
         _enable();
@@ -159,7 +163,7 @@ class SPIFlashLogger {
                     if (rem_in_object == 0) {
                         try {
                             local object = _serializer.deserialize(serialised_object, OBJECT_MARKER);
-                            callback(object);
+                            imp.wakeup(0, function() { onData(object); });
                             find_pos += rem_to_copy;
                         } catch (e) {
                             /********** WHY IS THIS HERE **********/
@@ -182,6 +186,7 @@ class SPIFlashLogger {
         }
         _disable();
 
+        if (onComplete) imp.onwakeup(0, function() { onComplete(); });
     }
 
     function erase() {
