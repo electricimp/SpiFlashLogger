@@ -104,7 +104,6 @@ class SPIFlashLogger {
                 _at_sec = (_at_sec + 1) % _sectors;
                 _at_pos = SECTOR_META_SIZE;
             }
-
         } while (obj_remaining > 0);
 
         _disable();
@@ -193,12 +192,30 @@ class SPIFlashLogger {
         }
     }
 
+    function getPosition() {
+        // Return the current sector and position
+        return { "sector": _at_sec, "offset": _at_pos };
+    }
+
+    function setPosition(sector, offset) {
+        // Validate sector and position
+        if (sector < 0 ||sector >= _sectors) throw "Sector out of range";
+        if (offset < 0|| offset >= SECTOR_SIZE) throw "Position out of range"
+
+        // Set the current sector and position
+        _at_sec = sector;
+        _at_pos = offset;
+
+        // Grab the current id from the metadata and increment
+        _next_sec_id = _getSectorMetadata(sector).id + 1;
+    }
+
     function _enable() {
         if (_enables == 0) {
             _flash.enable();
         }
 
-        _enable += 1;
+        _enables += 1;
     }
 
     function _disable() {
@@ -257,14 +274,12 @@ class SPIFlashLogger {
         // Parse the meta data
         meta.seek(0);
         return { "id": meta.readn('i'), "map": meta.readn('w') };
-
     }
 
     function _init() {
-
         local best_id = 0;          // The highest id
         local best_sec = 0;         // The sector with the highest id
-        local best_map = 0xFFFFF;   // The map of the sector with the highest id
+        local best_map = 0xFFFF;    // The map of the sector with the highest id
 
         // Read all the metadata
         _enable();
@@ -296,14 +311,15 @@ class SPIFlashLogger {
     }
 
     function _erase(start_sector = null, end_sector = null, preparing = false) {
-
         if (start_sector == null) {
             start_sector = 0;
             end_sector = _sectors;
         }
+
         if (end_sector == null) {
             end_sector = start_sector + 1;
         }
+
         if (start_sector < 0 || end_sector > _sectors) throw "Invalid format request";
 
         _enable();
