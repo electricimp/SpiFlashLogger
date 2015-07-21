@@ -1,3 +1,7 @@
+// Copyright (c) 2015 Electric Imp
+// This file is licensed under the MIT License
+// http://opensource.org/licenses/MIT
+
 class SPIFlashLogger {
 
     static version = [1,0,0];
@@ -216,18 +220,18 @@ class SPIFlashLogger {
     }
 
     function _enable() {
-        if (_enables == 0) {
+        // Check _enables then increment
+        if (_enables++ == 0) {
             _flash.enable();
         }
-
-        _enables += 1;
     }
 
     function _disable() {
-        if (_enables == 0)  {
+        // Decrement _enables then check
+        if (--_enables == 0)  {
             _flash.disable();
         }
-        _enables -= 1;
+
     }
 
     function _write(object, sector, pos, object_pos = 0, len = null) {
