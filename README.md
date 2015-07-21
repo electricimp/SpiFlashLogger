@@ -110,13 +110,13 @@ Erasing all memory allocated to the SPIFlash logger. See *readSync* for sample u
 
 ### getPosition()
 
-The *getPosition* method returns the current sector and offset pointers (i.e. where the SPIFlashLogger will perform the next read). This information can be used along with the *setPosition* method to optimize SPIFlash memory usage between deepsleeps.
+The *getPosition* method returns the current SPI flash pointer (i.e. where the SPIFlashLogger will perform the next write). This information can be used along with the *setPosition* method to optimize SPIFlash memory usage between deepsleeps.
 
 *See setPosition for sample usage.*
 
-### setPosition(sector, offset)
+### setPosition(position)
 
-The setPosition method sets the current sector and offset pointers for the SPIFlashLogger. Setting the sector and offset pointers can help optimize SPIFlash memory usage between deepsleeps, as it allows the SPIFlashLogger to be precise to 1 byte, rather 256 bytes (the size of a chunk).
+The setPosition method sets the current SPI flash pointer (i.e. where the SPIFlashLogger will perform the next read). Setting the pointer can help optimize SPI flash memory usage between deep sleeps, as it allows the SPIFlashLogger to be precise to 1 byte, rather 256 bytes (the size of a chunk).
 
 ```squirrel
 // Create the logger object

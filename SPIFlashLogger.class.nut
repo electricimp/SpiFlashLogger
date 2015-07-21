@@ -1,7 +1,3 @@
-// Copyright (c) 2015 Electric Imp
-// This file is licensed under the MIT License
-// http://opensource.org/licenses/MIT
-
 // Using `const`s instead of `static`s for performance
 const SPIFLASHLOGGER_SECTOR_SIZE = 4096;        // Size of sectors
 const SPIFLASHLOGGER_SECTOR_META_SIZE = 6;      // Size of metadata at start of sectors
@@ -204,13 +200,16 @@ class SPIFlashLogger {
 
     function getPosition() {
         // Return the current sector and position
-        return { "sector": _at_sec, "offset": _at_pos };
+        return _at_sec * SPIFLASHLOGGER_SECTOR_SIZE + _at_pos;
     }
 
-    function setPosition(sector, offset) {
+    function setPosition(position) {
+        // Grab the sector and offset from the position
+        local sector = position / SPIFLASHLOGGER_SECTOR_SIZE;
+        local offset = position % SPIFLASHLOGGER_SECTOR_SIZE;
+
         // Validate sector and position
-        if (sector < 0 ||sector >= _sectors) throw "Sector out of range";
-        if (offset < 0|| offset >= SPIFLASHLOGGER_SECTOR_SIZE) throw "Position out of range"
+        if (sector < 0 || sector >= _sectors) throw "Position out of range";
 
         // Set the current sector and position
         _at_sec = sector;
@@ -222,14 +221,18 @@ class SPIFlashLogger {
 
     function _enable() {
         // Check _enables then increment
-        if (_enables++ == 0) {
+        if (_enables == 0) {
             _flash.enable();
         }
+
+        _enables += 1;
     }
 
     function _disable() {
         // Decrement _enables then check
-        if (--_enables == 0)  {
+        _enables -= 1;
+
+        if (_enables == 0)  {
             _flash.disable();
         }
 
@@ -279,10 +282,13 @@ class SPIFlashLogger {
 
     function _getSectorMetadata(sector) {
         // NOTE: Should we skip clean sectors automatically?
+        _enable();
         local start = _start + (sector * SPIFLASHLOGGER_SECTOR_SIZE);
         local meta = _flash.read(start, SPIFLASHLOGGER_SECTOR_META_SIZE);
         // Parse the meta data
         meta.seek(0);
+        _disable();
+
         return { "id": meta.readn('i'), "map": meta.readn('w') };
     }
 
