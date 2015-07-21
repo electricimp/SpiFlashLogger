@@ -1,3 +1,7 @@
+// Copyright (c) 2015 Electric Imp
+// This file is licensed under the MIT License
+// http://opensource.org/licenses/MIT
+
 // Using `const`s instead of `static`s for performance
 const SPIFLASHLOGGER_SECTOR_SIZE = 4096;        // Size of sectors
 const SPIFLASHLOGGER_SECTOR_META_SIZE = 6;      // Size of metadata at start of sectors
@@ -27,6 +31,7 @@ class SPIFlashLogger {
     _len = null;        // The length of the flash available (end-start)
     _sectors = 0;       // The number of sectors in _len
     _max_data = 0;      // The maximum data we can push at once
+
     _at_sec = 0;        // Current sector we're writing to
     _at_pos = 0;        // Current position we're writing to in the sector
 
@@ -169,9 +174,8 @@ class SPIFlashLogger {
                             onData(object);
                             find_pos += rem_to_copy;
                         } catch (e) {
-                            /********** WHY IS THIS HERE **********/
-                            server.error(e);
-                            find_pos ++;
+                            server.error("DESERIALIZATION ERROR: " + e);
+                            find_pos++;
                         }
                         serialised_object.resize(0);
                     } else {
@@ -199,7 +203,7 @@ class SPIFlashLogger {
     }
 
     function getPosition() {
-        // Return the current sector and position
+        // Return the current pointer (sector + offset)
         return _at_sec * SPIFLASHLOGGER_SECTOR_SIZE + _at_pos;
     }
 
@@ -214,9 +218,6 @@ class SPIFlashLogger {
         // Set the current sector and position
         _at_sec = sector;
         _at_pos = offset;
-
-        // Grab the current id from the metadata and increment
-        _next_sec_id = _getSectorMetadata(sector).id + 1;
     }
 
     function _enable() {
