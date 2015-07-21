@@ -80,7 +80,7 @@ Writes any serializable object to the memory allocated to the SPIFlashLogger. If
 function readAndSleep() {
     // Read and log the data..
     local data = getData();
-    logger.log(data);
+    logger.write(data);
 
     // Go to sleep for an hour
     imp.onidle(function() { server.deepsleepfor(3600); });
@@ -134,7 +134,7 @@ if ("nv" in getroottable() && "position" in nv) {
 
 // Get some data and log it
 data <- getData();
-logger.log(data);
+logger.write(data);
 
 // Increment a counter
 if (!("count" in nv)) nv.count <- 1;
