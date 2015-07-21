@@ -87,7 +87,7 @@ function readAndSleep() {
 }
 ```
 
-### readSync(onDatapoint, [onComplete])
+### readSync(onDatapoint)
 
 The *readSync* method performs a synchronous read of *ALL* logs that are currently stored, and invokes the *onDatapoint* callback for each (in the order they were logged).
 
@@ -97,11 +97,10 @@ function sendToAgent() {
     logger.readSync(function(dataPoint) {
         // Push each datapoint into the data array
         data.push(datapoint);
-    }, function(){
-        // send the data to the agent, then erase the logger
-        agent.send("data", data);
-        logger.erase();
     });
+
+    agent.send("data", data);
+    logger.erase();
 }
 ```
 

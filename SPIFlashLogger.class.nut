@@ -17,6 +17,7 @@ const SPIFLASHLOGGER_OBJECT_MIN_SIZE = 6;       // SPIFLASHLOGGER_OBJECT_MARKER 
 const SPIFLASHLOGGER_SECTOR_DIRTY = 0x00;       // Flag for dirty sectors
 const SPIFLASHLOGGER_SECTOR_CLEAN = 0xFF;       // Flag for clean sectors
 
+
 class SPIFlashLogger {
 
     static version = [1,0,0];
@@ -119,7 +120,7 @@ class SPIFlashLogger {
         _disable();
     }
 
-    function readSync(onData, onComplete = null) {
+    function readSync(onData) {
         local serialised_object = blob();
 
         _enable();
@@ -169,7 +170,7 @@ class SPIFlashLogger {
                     if (rem_in_object == 0) {
                         try {
                             local object = _serializer.deserialize(serialised_object, SPIFLASHLOGGER_OBJECT_MARKER);
-                            imp.wakeup(0, function() { onData(object); });
+                            onData(object);
                             find_pos += rem_to_copy;
                         } catch (e) {
                             /********** WHY IS THIS HERE **********/
@@ -191,8 +192,6 @@ class SPIFlashLogger {
             }
         }
         _disable();
-
-        if (onComplete) imp.onwakeup(0, function() { onComplete(); });
     }
 
     function erase() {
