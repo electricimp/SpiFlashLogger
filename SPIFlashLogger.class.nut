@@ -286,15 +286,28 @@ class SPIFlashLogger {
     }
 
 
-    function peek() {
+    function last() {
 
         // Read in one object at a time and keep the very last one
-        local last_object = null;        
+        local obj = null;        
         readSync(function(object) {
             // Keep the last pointer
-            last_object = object;
+            obj = object;
         }.bindenv(this))
-        return last_object
+        return obj
+        
+    }
+
+    function first() {
+
+        // Read in one object at a time and keep the very first one
+        local obj = null;        
+        readSync(function(object) {
+            // Keep the first pointer
+            obj = object;
+            return true;
+        }.bindenv(this))
+        return obj
         
     }
 

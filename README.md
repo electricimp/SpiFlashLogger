@@ -129,13 +129,24 @@ logger.readAsync(
 
 ```
 
-### peek()
+### first()
 
-Returns the last object written to the log.
+Returns the first object written to the log that hasn't been erased (i.e. the oldest entry on flash)
 
 ```squirrel
-logger.write("Hello, world.")
-server.log("The last log entry was: " + logger.peek());
+logger.write("This is the oldest")
+logger.write("This is the newest")
+assert(logger.first() == "This is the oldest");
+```
+
+### last()
+
+Returns the last object written to the log that hasn't been erased (i.e. the newest entry on flash)
+
+```squirrel
+logger.write("This is the oldest")
+logger.write("This is the newest")
+assert(logger.first() == "This is the newest");
 ```
 
 ### erase()
