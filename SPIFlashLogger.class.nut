@@ -186,6 +186,9 @@ class SPIFlashLogger {
                             continue;
                         }
 
+                        // Disable before calling the onData callback
+                        _disable();
+                        
                         local res = null;
                         if (first) {
                             // The caller only wants one object but also send the location of the object
@@ -199,10 +202,11 @@ class SPIFlashLogger {
                         }
                         
                         // Bail here if we have to
-                        if (res != null || first) {
-                            _disable();
-                            return res;
-                        }
+                        if (res != null || first) return res;
+                        
+                        // Renable the spiflash
+                        _enable();
+
                     } else {
                         find_pos += rem_to_copy;
                     }
@@ -281,6 +285,19 @@ class SPIFlashLogger {
         
     }
 
+
+    function peek() {
+
+        // Read in one object at a time and keep the very last one
+        local last_object = null;        
+        readSync(function(object) {
+            // Keep the last pointer
+            last_object = object;
+        }.bindenv(this))
+        return last_object
+        
+    }
+
     // Erases the marker to make an object invisible
     function eraseObject(addr) {
 
@@ -291,6 +308,7 @@ class SPIFlashLogger {
         local check = _flash.read(addr, SPIFLASHLOGGER_OBJECT_MARKER_SIZE);
         if (check.tostring() != SPIFLASHLOGGER_OBJECT_MARKER) {
             server.error("Object address invalid. No marker found.")
+            _disable();
             return false;
         }
         local clear = blob(SPIFLASHLOGGER_OBJECT_MARKER_SIZE);
