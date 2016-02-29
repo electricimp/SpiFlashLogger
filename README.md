@@ -1,12 +1,12 @@
-# SPIFlashLogger 1.0.0
+# SPIFlashLogger 1.1.0
 
 The SPIFlashLogger manages all or a portion of a SPI flash (either via imp003+'s built-in [hardware.spiflash](https://electricimp.com/docs/api/hardware/spiflash) or any functionally compatible driver such as the [SPIFlash library](https://github.com/electricimp/spiflash)).
 
 The SPIFlashLogger creates a circular log system, allowing you to log any serializable object (table, array, string, blob, integer, float, boolean and null) to the SPIFlash. If the log systems runs out of space in the SPIFlash, it begins overwritting the oldest logs.
 
-**To add this library to your project, add `#require "SPIFlashLogger.class.nut:1.0.0"`` to the top of your device code.**
+**To add this library to your project, add `#require "SPIFlashLogger.class.nut:1.1.0"`` to the top of your device code.**
 
-You can view the library’s source code on [GitHub](https://github.com/electricimp/spiflashlogger/tree/v1.0.0).
+You can view the library’s source code on [GitHub](https://github.com/electricimp/spiflashlogger/tree/v1.1.0).
 
 ## Memory Efficiency
 The SPIFlash logger operates on 4Kb sectors, and 256 byte chunks. Some necessary overhead is added to the beginning of each sector, as well as each serialized object (assuming you are using the standard [Serializer library](http://github.com/electricimp/serializer)). The overhead includes:
@@ -32,7 +32,7 @@ The SPIFlashLogger's constructor takes 4 optional parameters:
 ```squirrel
 // Initializing a SPIFlashLogger on an imp003+
 #require "Serializer.class.nut:1.0.0"
-#require "SPIFlashLogger.class.nut:1.0.0"
+#require "SPIFlashLogger.class.nut:1.1.0"
 
 // Initialize Logger to use the entire SPI Flash
 logger <- SPIFlashLogger();
@@ -42,7 +42,7 @@ logger <- SPIFlashLogger();
 // Initializing a SPIFlashLogger on an imp002
 #require "Serializer.class.nut:1.0.0"
 #require "SPIFlash.class.nut:1.0.0"
-#require "SPIFlashLogger.class.nut:1.0.0"
+#require "SPIFlashLogger.class.nut:1.1.0"
 
 // Setup SPI Bus
 spi <- hardware.spi257;
