@@ -31,7 +31,7 @@ The SPIFlashLogger's constructor takes 4 optional parameters:
 
 ```squirrel
 // Initializing a SPIFlashLogger on an imp003+
-#require "Serialier.class.nut:1.0.0"
+#require "Serializer.class.nut:1.0.0"
 #require "SPIFlashLogger.class.nut:1.0.0"
 
 // Initialize Logger to use the entire SPI Flash
@@ -40,7 +40,7 @@ logger <- SPIFlashLogger();
 
 ```squirrel
 // Initializing a SPIFlashLogger on an imp002
-#require "Serialier.class.nut:1.0.0"
+#require "Serializer.class.nut:1.0.0"
 #require "SPIFlash.class.nut:1.0.0"
 #require "SPIFlashLogger.class.nut:1.0.0"
 
