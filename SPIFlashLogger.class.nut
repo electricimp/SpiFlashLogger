@@ -186,15 +186,22 @@ class SPIFlashLogger {
                             continue;
                         }
 
+                        local res = null;
                         if (first) {
-                            // The caller only wants one object
-                            onData(object, object_location);
-                            return _disable();
+                            // The caller only wants one object but also send the location of the object
+                            res = onData(object, object_location);
                         } else {
-                            onData(object);
+                            // This is a normal data object so don't share the location (just for backwards compatibility)
+                            res = onData(object);
                             find_pos += rem_to_copy;
                             serialised_object.resize(0);
                             object_location = null;
+                        }
+                        
+                        // Bail here if we have to
+                        if (res != null || first) {
+                            _disable();
+                            return res;
                         }
                     } else {
                         find_pos += rem_to_copy;
@@ -212,53 +219,93 @@ class SPIFlashLogger {
         _disable();
     }
     
+    
     function readAsync(onData, onFinish = null) {
         
-        // Read in one object at a time
-        local empty = true;
-        readSync(function(object, location) {
-            // Make the request async
-            imp.wakeup(0, function() {
+        // Make the request async
+        imp.wakeup(0, function() {
+            
+            // Read in one object at a time
+            local empty = true;
+            readSync(function(object, location) {
+
+                // Tell the outer scope that we are still looking for more objects
+                empty = false;
+
                 // Send to the normal event handler
-                onData(object, location, function() {
+                local res = onData(object, function(cont = null) {
+                    
+                    // Don't allow the same handler to be called twice
                     if (location == null) return;
-
-                    // Erase the entry we found 
-                    _enable();
-                    local check = _flash.read(location, SPIFLASHLOGGER_OBJECT_MARKER_SIZE);
-                    if (check.tostring() != SPIFLASHLOGGER_OBJECT_MARKER) {
-                        server.error("Marker location invalid. No marker found.")
-                        if (onFinish) onFinish();
-                        return;
+                    
+                    // Erase the entry as requested
+                    local res = null;
+                    if (cont == null || cont == true) {
+                        res = eraseObject(location);
                     }
-                    local clear = blob(SPIFLASHLOGGER_OBJECT_MARKER_SIZE);
-                    local res = _flash.write(location, clear, SPIFLASH_POSTVERIFY);
-                    _disable();
-
-                    // Make sure this can't be called again
+                    
+                    // Prevent the handler from being called twice
                     location = null;
 
-                    if (res != 0) {
-                        server.error("Clearing marker failed. Can't continue to read.");
+                    // Throw the callback if we are bailing out here                    
+                    if (!res || cont != null) {
                         if (onFinish) onFinish();
                         return;
                     }
 
-                    // Start the scanning process again
+                    // Start the scanning process again.
+                    // NOTE: It would be more efficient / faster to pass in the current location as a parameter
+                    //       and then use that as the starting location in the next scan. But for now we are
+                    //       keeping things simple (and a little slow);
                     readAsync(onData, onFinish);
+                    
                 }.bindenv(this))
-            }.bindenv(this))
+                
+                // Handle a response to the callback by aborting early
+                if (res != null) {
+                    
+                    // Erase the object if we get a true
+                    if (res == true) eraseObject(location);
+                    
+                    // Bail out now
+                    location = null;
+                    if (onFinish) onFinish();
+                }
+            }.bindenv(this), true)
             
-            // Tell the outer scope that we are still looking for more objects
-            empty = false;
-        }.bindenv(this), true)
+            // Is the flash empty?
+            if (empty && onFinish) {
+                onFinish();
+            }
+        }.bindenv(this))
         
-        // Is the flash empty?
-        if (empty && onFinish) {
-            onFinish();
-        }
     }
 
+    // Erases the marker to make an object invisible
+    function eraseObject(addr) {
+
+        if (addr == null) return false;
+
+        // Erase the marker for the entry we found 
+        _enable();
+        local check = _flash.read(addr, SPIFLASHLOGGER_OBJECT_MARKER_SIZE);
+        if (check.tostring() != SPIFLASHLOGGER_OBJECT_MARKER) {
+            server.error("Object address invalid. No marker found.")
+            return false;
+        }
+        local clear = blob(SPIFLASHLOGGER_OBJECT_MARKER_SIZE);
+        local res = _flash.write(addr, clear, SPIFLASH_POSTVERIFY);
+        _disable();
+
+        if (res != 0) {
+            server.error("Clearing object marker failed.");
+            return false;
+        } 
+        
+        return true;
+        
+    }
+    
     function erase() {
         for (local sector = 0; sector < _sectors; sector++) {
             if (_map[sector] == SPIFLASHLOGGER_SECTOR_DIRTY) {
