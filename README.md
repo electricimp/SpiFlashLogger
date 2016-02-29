@@ -87,9 +87,9 @@ function readAndSleep() {
 }
 ```
 
-### readSync(onDatapoint)
+### readSync(onData)
 
-The *readSync* method performs a synchronous read of *ALL* logs that are currently stored, and invokes the *onDatapoint* callback for each (in the order they were logged).
+The *readSync* method performs a synchronous read of *ALL* logs that are currently stored, and invokes the *onData* callback for each (in the order they were logged). If the `onData` callback returns a value other than `null` then the scan is terminated.
 
 ```squirrel
 function sendToAgent() {
@@ -101,6 +101,34 @@ function sendToAgent() {
 
     agent.send("data", data);
     logger.erase();
+}
+```
+
+### readAsync(onData, onFinish = null)
+
+The *readAsync* method performs a synchronous scan but after finding an object the next scan doesn't start until the `onData` callback code executes the `next()` function. This allows for the asynchronous processing of each log object such as sending to the agent and waiting for an acknowledgement. It will cotinue to scan through all the logs invoking the *onData* callback for each in the order they were logged. The optional *onFinish* callback will be called after the last object is located.
+
+Unlike the `readSync` function the `readAsync` function needs to erase the log entries as they are processed in order to prevent them from being scanned multiple times. So there is no need erase the log entries manually.
+
+If the `onData` callback returns a value other than null the scan is terminated. If the return value is `true` then the scan is terminated and the current entry is erased. All other return values the scan is terminated but the current entry is not erased.  Similarly, the same values (true, false) can be passed into the `next()` function.
+
+```squirrel
+function sendToAgent() {
+    logger.readAsync(
+
+        // For each object in the logs
+        function(dataPoint, next) {
+            // Send the dataPoint to the agent
+            agent.send("data", dataPoint);
+            // Wait a little while for it to arrive
+            imp.wakeup(0.5, next);
+        },
+
+        // All finished
+        function() {
+            server.log("Finished sending and all entries are erased")
+        }
+    );
 }
 ```
 
