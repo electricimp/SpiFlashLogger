@@ -4,7 +4,7 @@ The SPIFlashLogger manages all or a portion of a SPI flash (either via imp003+'s
 
 The SPIFlashLogger creates a circular log system, allowing you to log any serializable object (table, array, string, blob, integer, float, boolean and null) to the SPIFlash. If the log systems runs out of space in the SPIFlash, it begins overwritting the oldest logs.
 
-**To add this library to your project, add `#require "SPIFlashLogger.class.nut:1.1.0"`` to the top of your device code.**
+**To add this library to your project, add `#require "SPIFlashLogger.class.nut:1.1.0"` to the top of your device code.**
 
 You can view the library’s source code on [GitHub](https://github.com/electricimp/spiflashlogger/tree/v1.1.0).
 
@@ -41,7 +41,7 @@ logger <- SPIFlashLogger();
 ```squirrel
 // Initializing a SPIFlashLogger on an imp002
 #require "Serializer.class.nut:1.0.0"
-#require "SPIFlash.class.nut:1.0.0"
+#require "SPIFlash.class.nut:1.0.1"
 #require "SPIFlashLogger.class.nut:1.1.0"
 
 // Setup SPI Bus
@@ -146,7 +146,7 @@ Returns the last object written to the log that hasn't been erased (i.e. the new
 ```squirrel
 logger.write("This is the oldest")
 logger.write("This is the newest")
-assert(logger.first() == "This is the newest");
+assert(logger.last() == "This is the newest");
 ```
 
 ### erase()
