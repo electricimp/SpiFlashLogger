@@ -178,8 +178,7 @@ if ("nv" in getroottable() && "position" in nv) {
         "position": {
                 "sector": positionData.sector,
                 "offset": positionData.offset
-           }
-       }
+        }
     };
 }
 
