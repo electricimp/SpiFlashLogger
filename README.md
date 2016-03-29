@@ -1,12 +1,12 @@
-# SPIFlashLogger 1.0.0
+# SPIFlashLogger 1.1.0
 
 The SPIFlashLogger manages all or a portion of a SPI flash (either via imp003+'s built-in [hardware.spiflash](https://electricimp.com/docs/api/hardware/spiflash) or any functionally compatible driver such as the [SPIFlash library](https://github.com/electricimp/spiflash)).
 
 The SPIFlashLogger creates a circular log system, allowing you to log any serializable object (table, array, string, blob, integer, float, boolean and null) to the SPIFlash. If the log systems runs out of space in the SPIFlash, it begins overwritting the oldest logs.
 
-**To add this library to your project, add `#require "SPIFlashLogger.class.nut:1.0.0"`` to the top of your device code.**
+**To add this library to your project, add `#require "SPIFlashLogger.class.nut:1.1.0"` to the top of your device code.**
 
-You can view the library’s source code on [GitHub](https://github.com/electricimp/spiflashlogger/tree/v1.0.0).
+You can view the library’s source code on [GitHub](https://github.com/electricimp/spiflashlogger/tree/v1.1.0).
 
 ## Memory Efficiency
 The SPIFlash logger operates on 4Kb sectors, and 256 byte chunks. Some necessary overhead is added to the beginning of each sector, as well as each serialized object (assuming you are using the standard [Serializer library](http://github.com/electricimp/serializer)). The overhead includes:
@@ -31,8 +31,8 @@ The SPIFlashLogger's constructor takes 4 optional parameters:
 
 ```squirrel
 // Initializing a SPIFlashLogger on an imp003+
-#require "Serialier.class.nut:1.0.0"
-#require "SPIFlashLogger.class.nut:1.0.0"
+#require "Serializer.class.nut:1.0.0"
+#require "SPIFlashLogger.class.nut:1.1.0"
 
 // Initialize Logger to use the entire SPI Flash
 logger <- SPIFlashLogger();
@@ -40,9 +40,9 @@ logger <- SPIFlashLogger();
 
 ```squirrel
 // Initializing a SPIFlashLogger on an imp002
-#require "Serialier.class.nut:1.0.0"
-#require "SPIFlash.class.nut:1.0.0"
-#require "SPIFlashLogger.class.nut:1.0.0"
+#require "Serializer.class.nut:1.0.0"
+#require "SPIFlash.class.nut:1.0.1"
+#require "SPIFlashLogger.class.nut:1.1.0"
 
 // Setup SPI Bus
 spi <- hardware.spi257;
@@ -87,21 +87,66 @@ function readAndSleep() {
 }
 ```
 
-### readSync(onDatapoint)
+### readSync(onData)
 
-The *readSync* method performs a synchronous read of *ALL* logs that are currently stored, and invokes the *onDatapoint* callback for each (in the order they were logged).
+The *readSync* method performs a synchronous read of *ALL* logs that are currently stored, and invokes the *onData* callback for each (in the order they were logged). If the `onData` callback returns a value other than `null` then the scan is terminated.
 
 ```squirrel
-function sendToAgent() {
-    local data = [];
-    logger.readSync(function(dataPoint) {
-        // Push each datapoint into the data array
-        data.push(datapoint);
-    });
+local data = [];
+logger.readSync(function(dataPoint) {
+    // Push each datapoint into the data array
+    data.push(datapoint);
+});
 
-    agent.send("data", data);
-    logger.erase();
-}
+agent.send("data", data);
+logger.erase();
+```
+
+### readAsync(onData, onFinish = null)
+
+The *readAsync* method performs a synchronous scan but after finding an object the next scan doesn't start until the `onData` callback code executes the `next()` function. This allows for the asynchronous processing of each log object such as sending to the agent and waiting for an acknowledgement. It will cotinue to scan through all the logs invoking the *onData* callback for each in the order they were logged. The optional *onFinish* callback will be called after the last object is located.
+
+Unlike the `readSync` function the `readAsync` function needs to erase the log entries as they are processed in order to prevent them from being scanned multiple times. So there is no need erase the log entries manually.
+
+If the `onData` callback returns a value other than null the scan is terminated. If the return value is `true` then the scan is terminated and the current entry is erased. All other return values the scan is terminated but the current entry is not erased.  Similarly, the same values (true, false) can be passed into the `next()` function.
+
+```squirrel
+logger.readAsync(
+
+    // For each object in the logs
+    function(dataPoint, next) {
+        // Send the dataPoint to the agent
+        agent.send("data", dataPoint);
+        // Wait a little while for it to arrive
+        imp.wakeup(0.5, next);
+    },
+
+    // All finished
+    function() {
+        server.log("Finished sending and all entries are erased")
+    }
+);
+
+```
+
+### first()
+
+Returns the first object written to the log that hasn't been erased (i.e. the oldest entry on flash)
+
+```squirrel
+logger.write("This is the oldest")
+logger.write("This is the newest")
+assert(logger.first() == "This is the oldest");
+```
+
+### last()
+
+Returns the last object written to the log that hasn't been erased (i.e. the newest entry on flash)
+
+```squirrel
+logger.write("This is the oldest")
+logger.write("This is the newest")
+assert(logger.last() == "This is the newest");
 ```
 
 ### erase()
@@ -125,16 +170,12 @@ logger <- SPIFlashLogger();
 // Check if we have position information in the nv table:
 if ("nv" in getroottable() && "position" in nv) {
     // If we do, update the position pointers in the logger object
-    logger.setPosition(nv.position.sector, nv.position.offset);
+    logger.setPosition(nv.position);
 } else {
     // If we don't, grab the position points and set nv
     local position = logger.getPosition();
     nv <- {
-        "position": {
-                "sector": positionData.sector,
-                "offset": positionData.offset
-           }
-       }
+        "position": position
     };
 }
 
@@ -149,21 +190,41 @@ else nv.count++;
 // If we have more than 100 samples
 if (nv.count > 100) {
     // Send the samples to the agent
-    sendToAgent();
+    logger.readAsync(
+        function(dataPoint, next) {
+            // Send the dataPoint to the agent
+            agent.send("data", dataPoint);
+            // Wait a little while for it to arrive
+            imp.wakeup(0.5, next);
+        },
+        function() {
+            server.log("Finished sending and all entries are erased");
+            // Reset counter
+            nv.count <- 1;
+            // Go to sleep when done
+            imp.onidle(function() {
+                // Get and store position pointers for next run
+                local position = logger.getPosition();
+                nv.position <- position;
+
+                // Sleep for 1 minute
+                imp.deepsleepfor(60);
+            });
+        }
+    );
+} else {
+    // Go to sleep
+    imp.onidle(function() {
+        // Get and store position pointers for next run
+        local position = logger.getPosition();
+        nv.position <- position;
+
+        // Sleep for 1 minute
+        imp.deepsleepfor(60);
+    });
 }
 
-// Go to sleep
-imp.onidle(function() {
-    // Get and store position pointers for next run
-    local position = logger.getPosition();
-    nv.position <- {
-        "sector": position.sector,
-        "offset": position.offset
-    };
 
-    // Sleep for 1 minute
-    imp.deepsleepfor(60);
-});
 ```
 
 # License
