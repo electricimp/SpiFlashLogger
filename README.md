@@ -175,10 +175,7 @@ if ("nv" in getroottable() && "position" in nv) {
     // If we don't, grab the position points and set nv
     local position = logger.getPosition();
     nv <- {
-        "position": {
-                "sector": positionData.sector,
-                "offset": positionData.offset
-        }
+        "position": position
     };
 }
 
@@ -193,21 +190,41 @@ else nv.count++;
 // If we have more than 100 samples
 if (nv.count > 100) {
     // Send the samples to the agent
-    sendToAgent();
+    logger.readAsync(
+        function(dataPoint, next) {
+            // Send the dataPoint to the agent
+            agent.send("data", dataPoint);
+            // Wait a little while for it to arrive
+            imp.wakeup(0.5, next);
+        },
+        function() {
+            server.log("Finished sending and all entries are erased");
+            // Reset counter
+            nv.count <- 1;
+            // Go to sleep when done
+            imp.onidle(function() {
+                // Get and store position pointers for next run
+                local position = logger.getPosition();
+                nv.position <- position;
+
+                // Sleep for 1 minute
+                imp.deepsleepfor(60);
+            });
+        }
+    );
+} else {
+    // Go to sleep
+    imp.onidle(function() {
+        // Get and store position pointers for next run
+        local position = logger.getPosition();
+        nv.position <- position;
+
+        // Sleep for 1 minute
+        imp.deepsleepfor(60);
+    });
 }
 
-// Go to sleep
-imp.onidle(function() {
-    // Get and store position pointers for next run
-    local position = logger.getPosition();
-    nv.position <- {
-        "sector": position.sector,
-        "offset": position.offset
-    };
 
-    // Sleep for 1 minute
-    imp.deepsleepfor(60);
-});
 ```
 
 # License
