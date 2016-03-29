@@ -170,7 +170,7 @@ logger <- SPIFlashLogger();
 // Check if we have position information in the nv table:
 if ("nv" in getroottable() && "position" in nv) {
     // If we do, update the position pointers in the logger object
-    logger.setPosition(nv.position.sector, nv.position.offset);
+    logger.setPosition(nv.position);
 } else {
     // If we don't, grab the position points and set nv
     local position = logger.getPosition();
