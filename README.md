@@ -2,32 +2,33 @@
 
 The SPIFlashLogger manages all or a portion of a SPI flash (either via imp003+'s built-in [hardware.spiflash](https://electricimp.com/docs/api/hardware/spiflash) or any functionally compatible driver such as the [SPIFlash library](https://github.com/electricimp/spiflash)).
 
-The SPIFlashLogger creates a circular log system, allowing you to log any serializable object (table, array, string, blob, integer, float, boolean and null) to the SPIFlash. If the log systems runs out of space in the SPIFlash, it begins overwritting the oldest logs.
+The SPIFlashLogger creates a circular log system, allowing you to log any serializable object (table, array, string, blob, integer, float, boolean and `null`) to the SPIFlash. If the log systems runs out of space in the SPIFlash, it begins overwriting the oldest logs.
 
 **To add this library to your project, add `#require "SPIFlashLogger.class.nut:1.1.0"` to the top of your device code.**
 
 You can view the library’s source code on [GitHub](https://github.com/electricimp/spiflashlogger/tree/v1.1.0).
 
 ## Memory Efficiency
-The SPIFlash logger operates on 4Kb sectors, and 256 byte chunks. Some necessary overhead is added to the beginning of each sector, as well as each serialized object (assuming you are using the standard [Serializer library](http://github.com/electricimp/serializer)). The overhead includes:
+
+The SPIFlash logger operates on 4KB sectors and 256-byte chunks. Some necessary overhead is added to the beginning of each sector, as well as each serialized object (assuming you are using the standard [Serializer library](https://electricimp.com/docs/libraries/utilities/serializer.1.0.0/)). The overhead includes:
 
 - 256 bytes of every sector are expended on metadata.
-- A four byte marker is added to the beginning of each serialized object to aid in locating objects in the datastream.
-- The *Serializer* object also adds some overhead to each object (see the [Serializer's documentation](https://github.com/electricimp/serializer/tree/master/README.md) for more information).
-- After a reboot the sector meta data allows the class to locate the next write position at the next chunk which wastes some of the previous chunk (this behaviour can be overrideen using the *getPosition* and *setPosition* methods).
+- A four-byte marker is added to the beginning of each serialized object to aid in locating objects in the datastream.
+- The *Serializer* object also adds some overhead to each object (see the [Serializer's documentation](https://electricimp.com/docs/libraries/utilities/serializer.1.0.0/) for more information).
+- After a reboot the sector metadata allows the class to locate the next write position at the next chunk. This wastes some of the previous chunk, though this behaviour can be overridden using the *getPosition()* and *setPosition()* methods.
 
 ## Class Usage
 
-### Constructor: SPIFlashLogger([start, end, spiflash, serializer])
+### Constructor: SPIFlashLogger(*[start, end, spiflash, serializer]*)
 
-The SPIFlashLogger's constructor takes 4 optional parameters:
+The SPIFlashLogger’s constructor takes four parameters, all of which are optional:
 
-| parameter  | default           | description |
-| ---------- | ----------------- | ----------- |
-| start      | 0                 | The first byte in the SPIFlash to use (must be the first byte of a sector). |
-| end        | spiflash.size()   | The last byte in the SPIFlash to use (must be the last byte of a sector). |
-| spiflash   | hardware.spiflash | hardware.spiflash, or an object with an equivalent interface such as the [SPIFlash](https://github.com/electricimp/spiflash) library. |
-| serializer | Serializer        | The static [Serializer library](https://github.com/electricimp/serializer), or an object with an equivalent interface. |
+| Parameter | Default Value | Description |
+| --- | --- | --- |
+| *start* | 0 | The first byte in the SPIFlash to use (must be the first byte of a sector). |
+| *end*  | *spiflash.size()*   | The last byte in the SPIFlash to use (must be the last byte of a sector). |
+| *spiflash*  | **hardware.spiflash** | hardware.spiflash, or an object with an equivalent interface such as the [SPIFlash](https://electricimp.com/docs/libraries/hardware/spiflash.1.0.1/) library. |
+| *serializer* | Serializer class | The static [Serializer library](https://electricimp.com/docs/libraries/utilities/serializer.1.0.0/), or an object with an equivalent interface. |
 
 ```squirrel
 // Initializing a SPIFlashLogger on an imp003+
@@ -59,26 +60,25 @@ logger <- SPIFlashLogger(null, null, spiFlash);
 ## Class Methods
 
 ### dimensions()
-The *dimensions* method returns a table with the following keys:
 
-```squirrel
-{
-    "size" :        integer,    // The size of the SPIFlash in bytes
-    "len" :         integer,    // Number of bytes allocated to the logger
-    "start" :       integer,    // First byte used by the logger
-    "end" :         integer,    // Last byte used by the logger
-    "sectors" :     integer,    // Number of sectors allocated to the logger
-    "sector_size" : integer     // Size of sectors in bytes
-}
-```
+The *dimensions()* method returns a table with the following keys, each of which gives access to an integer value:
 
-### write(object)
+| Key | Description |
+| --- | --- |
+| *size* | The size of the SPIFlash in bytes |
+| *len* | The number of bytes allocated to the logger |
+| *start* | The first byte used by the logger |
+| *end* | The last byte used by the logger |
+| *sectors* | The number of sectors allocated to the logger |
+| *sector_size* | The size of sectors in bytes |
 
-Writes any serializable object to the memory allocated to the SPIFlashLogger. If the memory is full, the logger will begin overwritting the oldest entries.
+### write(*object*)
+
+Writes any serializable object to the memory allocated to the SPIFlashLogger. If the memory is full, the logger will begin overwriting the oldest entries.
 
 ```squirrel
 function readAndSleep() {
-    // Read and log the data..
+    // Read and log the data
     local data = getData();
     logger.write(data);
 
@@ -87,9 +87,9 @@ function readAndSleep() {
 }
 ```
 
-### readSync(onData)
+### readSync(*onData*)
 
-The *readSync* method performs a synchronous read of *ALL* logs that are currently stored, and invokes the *onData* callback for each (in the order they were logged). If the `onData` callback returns a value other than `null` then the scan is terminated.
+The *readSync()* method performs a synchronous read of *all* logs that are currently stored, and invokes the *onData* callback for each (in the order they were logged). If the `onData` callback returns a value other than `null`, the scan is terminated.
 
 ```squirrel
 local data = [];
@@ -102,17 +102,16 @@ agent.send("data", data);
 logger.erase();
 ```
 
-### readAsync(onData, onFinish = null)
+### readAsync(*onData[, onFinish]*)
 
-The *readAsync* method performs a synchronous scan but after finding an object the next scan doesn't start until the `onData` callback code executes the `next()` function. This allows for the asynchronous processing of each log object such as sending to the agent and waiting for an acknowledgement. It will cotinue to scan through all the logs invoking the *onData* callback for each in the order they were logged. The optional *onFinish* callback will be called after the last object is located.
+The *readAsync()* method performs a synchronous scan but after finding an object the next scan doesn’t start until the *onData* callback code executes the *next()* method. This allows for the asynchronous processing of each log object, such as sending data to the agent and waiting for an acknowledgement. The method will cotinue to scan through all the logs, invoking the *onData* callback for each in the order they were logged. The optional *onFinish* callback will be called after the last object is located.
 
-Unlike the `readSync` function the `readAsync` function needs to erase the log entries as they are processed in order to prevent them from being scanned multiple times. So there is no need erase the log entries manually.
+Unlike the *readSync()* method, *readAsync()* needs to erase the log entries as they are processed in order to prevent them from being scanned multiple times. There is no need erase the log entries manually.
 
-If the `onData` callback returns a value other than null the scan is terminated. If the return value is `true` then the scan is terminated and the current entry is erased. All other return values the scan is terminated but the current entry is not erased.  Similarly, the same values (true, false) can be passed into the `next()` function.
+If the *onData* callback returns a value other than `null`, the scan is terminated. If the return value is `true` then the scan is terminated and the current entry is erased. For all other return values, the scan is terminated but the current entry is not erased. Similarly, the same values (`true`, `false`) can be passed into the *next()* method.
 
 ```squirrel
 logger.readAsync(
-
     // For each object in the logs
     function(dataPoint, next) {
         // Send the dataPoint to the agent
@@ -126,42 +125,41 @@ logger.readAsync(
         server.log("Finished sending and all entries are erased")
     }
 );
-
 ```
 
 ### first()
 
-Returns the first object written to the log that hasn't been erased (i.e. the oldest entry on flash)
+This method returns the first object written to the log that hasn’t been erased, ie. the oldest entry in the flash.
 
 ```squirrel
-logger.write("This is the oldest")
-logger.write("This is the newest")
+logger.write("This is the oldest");
+logger.write("This is the newest");
 assert(logger.first() == "This is the oldest");
 ```
 
 ### last()
 
-Returns the last object written to the log that hasn't been erased (i.e. the newest entry on flash)
+This method returns the last object written to the log that hasn’t been erased, ie. the newest entry in the flash.
 
 ```squirrel
-logger.write("This is the oldest")
-logger.write("This is the newest")
+logger.write("This is the oldest");
+logger.write("This is the newest");
 assert(logger.last() == "This is the newest");
 ```
 
 ### erase()
 
-Erasing all memory allocated to the SPIFlash logger. See *readSync* for sample usage.
+This method erases all memory allocated to the SPIFlash logger. See *readSync()* for sample usage.
 
 ### getPosition()
 
-The *getPosition* method returns the current SPI flash pointer (i.e. where the SPIFlashLogger will perform the next write). This information can be used along with the *setPosition* method to optimize SPIFlash memory usage between deepsleeps.
+The *getPosition()* method returns the current SPI flash pointer, ie. where the SPIFlashLogger will perform the next read/write task. This information can be used along with the *setPosition()* method to optimize SPIFlash memory usage between deep sleeps.
 
-*See setPosition for sample usage.*
+See *setPosition()* for sample usage.
 
-### setPosition(position)
+### setPosition(*position*)
 
-The setPosition method sets the current SPI flash pointer (i.e. where the SPIFlashLogger will perform the next read). Setting the pointer can help optimize SPI flash memory usage between deep sleeps, as it allows the SPIFlashLogger to be precise to 1 byte, rather 256 bytes (the size of a chunk).
+The *setPosition()* method sets the current SPI flash pointer, ie. where the SPIFlashLogger will perform the next read/write task. Setting the pointer can help optimize SPI flash memory usage between deep sleeps, as it allows the SPIFlashLogger to be precise to one byte rather 256 bytes (the size of a chunk).
 
 ```squirrel
 // Create the logger object
@@ -174,8 +172,7 @@ if ("nv" in getroottable() && "position" in nv) {
 } else {
     // If we don't, grab the position points and set nv
     local position = logger.getPosition();
-    nv <- {
-        "position": position
+    nv <- { "position": position };
     };
 }
 
@@ -223,8 +220,6 @@ if (nv.count > 100) {
         imp.deepsleepfor(60);
     });
 }
-
-
 ```
 
 # License
