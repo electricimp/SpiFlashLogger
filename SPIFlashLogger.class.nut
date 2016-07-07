@@ -121,6 +121,94 @@ class SPIFlashLogger {
         _disable();
     }
 
+    function _getObj(pos, cb = null) {
+        _enable();
+        local meta = _flash.read(pos, SPIFLASHLOGGER_OBJECT_MARKER_SIZE).tostring();
+        local len = _flash.read(pos + SPIFLASHLOGGER_OBJECT_MARKER_SIZE, 2).readn('w');
+        _disable();
+
+        if (meta != SPIFLASHLOGGER_OBJECT_MARKER) {
+            throw "Error, meta not found at " + pos;
+        }
+
+        local serialised = blob(SPIFLASHLOGGER_OBJECT_HDR_SIZE + len);
+
+        local leftInObject;
+        _enable();
+        while (leftInObject = serialised.len() - serialised.tell()) {
+            local sectorStart = pos - (pos % SPIFLASHLOGGER_SECTOR_SIZE);
+            local sectorEnd = sectorStart + SPIFLASHLOGGER_SECTOR_SIZE;// MINUS ONE?
+            local leftInSector = sectorEnd - pos;
+            /* local sector = sectorStart / SPIFLASHLOGGER_SECTOR_SIZE; */
+
+            local read;
+            if (leftInObject < leftInSector) {
+                read = _flash.read(pos, leftInObject);
+                assert(read.len() == leftInObject);
+            } else {
+                read = _flash.read(pos, leftInSector);
+                assert(read.len() == leftInSector);
+            }
+
+            serialised.writeblob(read);
+
+            leftInObject -= read.len();
+
+            pos += read.len();
+            assert (pos <= sectorEnd);
+
+            if (pos == _end) pos = _start + SPIFLASHLOGGER_SECTOR_META_SIZE;
+            else if (pos == sectorEnd) pos += SPIFLASHLOGGER_SECTOR_META_SIZE;
+
+        }
+        _disable();
+
+        local obj = _serializer.deserialize(serialised, SPIFLASHLOGGER_OBJECT_MARKER);
+        if (cb) cb(obj);
+        else return obj;
+    }
+
+    /**
+     * Returns a blob of 16 bit address of starts of objects, relative to sector body start 
+     */
+    function _getObjAddrs(sector_idx) {
+        local data_start = _start + sector_idx * SPIFLASHLOGGER_SECTOR_SIZE + SPIFLASHLOGGER_SECTOR_META_SIZE;
+        _enable();
+        local sector_data = _flash.read(data_start, SPIFLASHLOGGER_SECTOR_BODY_SIZE).tostring();
+        _disable();
+
+        local from = 0,
+              addrs = blob(),
+              found;
+
+        while ((found = sector_data.find(SPIFLASHLOGGER_OBJECT_MARKER, from)) != null) {
+            addrs.writen(found, 'w');
+            from = found + 1;
+        }
+
+        addrs.seek(0);
+        return addrs;
+    }
+
+    function read(cb = null, reverse = false) {
+        
+        for (local i = 0; i < _sectors; i++) {
+
+            local sector = _at_sec + i;
+            local addrs_b = _getObjAddrs(sector);
+            server.log(format("Got %d addresses in sector %d", addrs_b.len() / 2, sector));
+            local addr, spi_addr, obj;
+
+            while (addrs_b.eos() != 1) {
+                addr = addrs_b.readn('w');
+                /* server.log(format("got address %d", addr)); */
+                spi_addr = _start + sector * SPIFLASHLOGGER_SECTOR_SIZE + SPIFLASHLOGGER_SECTOR_META_SIZE + addr;
+                obj = _getObj(spi_addr);
+                print(obj);
+            }
+        }
+    }
+
     function readSync(onData, first = false) {
         local serialised_object = blob();
         local object_location = null;
@@ -144,8 +232,10 @@ class SPIFlashLogger {
                     local header_loc = data_str.find(SPIFLASHLOGGER_OBJECT_MARKER, find_pos);
                     if (header_loc != null) {
                         
+                        server.log(format("Found object marker at sector %d", sector));
                         // Record where we found the header
                         object_location = start + SPIFLASHLOGGER_SECTOR_META_SIZE + header_loc;
+                        return _readObject(object_location);
                         
                         // Get the length of the object and make a blob to receive it
                         data.seek(header_loc + SPIFLASHLOGGER_OBJECT_MARKER_SIZE);
