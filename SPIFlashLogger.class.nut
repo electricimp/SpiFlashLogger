@@ -172,17 +172,24 @@ class SPIFlashLogger {
      * Returns a blob of 16 bit address of starts of objects, relative to sector body start 
      */
     function _getObjAddrs(sector_idx) {
-        local data_start = _start + sector_idx * SPIFLASHLOGGER_SECTOR_SIZE + SPIFLASHLOGGER_SECTOR_META_SIZE;
-        _enable();
-        local sector_data = _flash.read(data_start, SPIFLASHLOGGER_SECTOR_BODY_SIZE).tostring();
-        _disable();
-
-        local from = 0,
-              addrs = blob(),
+        local from = 0,        // index to search form 
+              addrs = blob(),  // addresses of starts of objects
               found;
 
+        // Sector clean
+        if (_map[sector_idx] != SPIFLASHLOGGER_SECTOR_DIRTY) return addrs;
+
+        local data_start = _start + sector_idx * SPIFLASHLOGGER_SECTOR_SIZE + SPIFLASHLOGGER_SECTOR_META_SIZE;
+        local readLength = _dirtyChunkCount(sector_idx) * SPIFLASHLOGGER_CHUNK_SIZE;
+        if (readLength > SPIFLASHLOGGER_SECTOR_BODY_SIZE) readLength = SPIFLASHLOGGER_SECTOR_BODY_SIZE;
+        _enable();
+        local sector_data = _flash.read(data_start, readLength).tostring();
+        _disable();
+
         while ((found = sector_data.find(SPIFLASHLOGGER_OBJECT_MARKER, from)) != null) {
+            // Found an object start, save the address
             addrs.writen(found, 'w');
+            // Skip the one we just found the next time around
             from = found + 1;
         }
 
@@ -531,6 +538,16 @@ class SPIFlashLogger {
         _disable();
 
         return { "id": meta.readn('i'), "map": meta.readn('w') };
+    }
+
+    function _dirtyChunkCount(sector) {
+        local map = _getSectorMetadata(sector).map;
+        local count, mask;
+        for (count = 0, mask = 0x0001; mask < 0x8000; mask = mask << 1) {
+            if (!(map & mask)) count++;
+            else break;
+        }
+        return count;
     }
 
     function _init() {
