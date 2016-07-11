@@ -10,9 +10,9 @@ You can view the library’s source code on [GitHub](https://github.com/electric
 
 ## Memory Efficiency
 
-The SPIFlash logger operates on 4KB sectors and 256-byte chunks. Some necessary overhead is added to the beginning of each sector, as well as each serialized object (assuming you are using the standard [Serializer library](https://electricimp.com/docs/libraries/utilities/serializer.1.0.0/)). The overhead includes:
+The SPIFlash logger operates on 4KB sectors and 256-byte chunks. Objects needn't be aligned with chunks or sectors.  Some necessary overhead is added to the beginning of each sector, as well as each serialized object (assuming you are using the standard [Serializer library](https://electricimp.com/docs/libraries/utilities/serializer.1.0.0/)). The overhead includes:
 
-- 256 bytes of every sector are expended on metadata.
+- 6 bytes of every sector are expended on sector-level metadata.
 - A four-byte marker is added to the beginning of each serialized object to aid in locating objects in the datastream.
 - The *Serializer* object also adds some overhead to each object (see the [Serializer's documentation](https://electricimp.com/docs/libraries/utilities/serializer.1.0.0/) for more information).
 - After a reboot the sector metadata allows the class to locate the next write position at the next chunk. This wastes some of the previous chunk, though this behaviour can be overridden using the *getPosition()* and *setPosition()* methods.
@@ -89,9 +89,13 @@ function readAndSleep() {
 
 ### read(*onData[, onFinish, step, skip]*)
 
-The *read()* method performs a synchronous scan but after finding an object the next scan doesn’t start until the *onData* callback code executes the *next()* method. This allows for the asynchronous processing of each log object, such as sending data to the agent and waiting for an acknowledgement. The method will continue to scan through all the logs, invoking the *onData* callback for each. The optional *onFinish* callback will be called after the last object is located (with no parameters).  `step` is an optional parameter controlling the rate at which the scan steps through objects, for example, setting `step == 2` will cause `onData` to be called only for every second object found.  Negative values are allowed for scanning through objects backwards, for example, `step == -1` will scan through all objects, starting from the most recently written and stepping backwards.  Skip can be used to skip a number of objects at the start of reading.  For example, a `step` of 2 and `skip` of 0 (the default) will call `onData` for every second object *starting from the first*, whereas with `skip == 1` it will be every second object *starting from the second*, thus the two options provide full coverage with no overlap.  As a potential use case, one might log two versions of each message: a short, concise version, and a longer, more detailed version.  `step == 2` could then be used to pick up only the concise versions.
+The '.read()' method reads objects from the logger asynchronously, calling `onData` on each (subject to `step`, `skip`, and early termination within `onData`).  This allows for the asynchronous processing of each log object, such as sending data to the agent and waiting for an acknowledgement.
 
-#### onData(object, address, next)
+The optional *onFinish* callback will be called after the last object is located (with no parameters).
+
+`step` is an optional parameter controlling the rate at which the scan steps through objects, for example, setting `step == 2` will cause `onData` to be called only for every second object found.  Negative values are allowed for scanning through objects backwards, for example, `step == -1` will scan through all objects, starting from the most recently written and stepping backwards.  Skip can be used to skip a number of objects at the start of reading.  For example, a `step` of 2 and `skip` of 0 (the default) will call `onData` for every second object *starting from the first*, whereas with `skip == 1` it will be every second object *starting from the second*, thus the two options provide full coverage with no overlap.  As a potential use case, one might log two versions of each message: a short, concise version, and a longer, more detailed version.  `step == 2` could then be used to pick up only the concise versions.
+
+#### *onData(object, address, next)*
 
 The on data callback is called for each requested object with three parameters: the deserialized object, the SPIFlash address of the (start of) the object, and a `next` callback.  Reading an object does not erase it, but the object can be erased in the body of `onData` by passing `address` to `erase()`.  `onData` should call next when it is is ready to scan for the next item.  Passing `false` to `next` aborts the scanning, skipping to `onFinish`
 
@@ -102,6 +106,8 @@ logger.read(
         // Send the dataPoint to the agent
         server.log(format("Found object at spiflash address %d", addr))
         agent.send("data", dataPoint);
+        // Erase it from the logger
+        logger.erase(addr);
         // Wait a little while for it to arrive
         imp.wakeup(0.5, next);
     },
