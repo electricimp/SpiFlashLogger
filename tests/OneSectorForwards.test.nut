@@ -72,4 +72,15 @@ class TestOneSectorForward extends ImpTestCase {
         }.bindenv(this));
     }
 
+    function testEarlyAbort() {
+        return Promise( function(resolve, reject) {
+            local expected = 1;
+            local checkOne = function(data, addr, next) {
+                this.assertEqual(expected, data);
+                next(false);
+            }.bindenv(this);
+            _logger.read(checkOne, resolve);
+        }.bindenv(this));
+    }
+
 }

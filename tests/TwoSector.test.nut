@@ -32,6 +32,19 @@ class TestTwoSector extends ImpTestCase {
         }.bindenv(this));
     }
 
+    function testByTwos() {
+        return Promise( function(resolve, reject) {
+            local expected = 0;
+            local checkOne = function(data, addr, next) {
+                /* server.log(format("found %d at %d", data, addr)); */
+                this.assertEqual(expected, data);
+                expected += 2;
+                next();
+            }.bindenv(this);
+            _logger.read(checkOne, resolve, 2);
+        }.bindenv(this));
+    }
+
     function testReadBackwards() {
         return Promise( function(resolve, reject) {
             local expected = 499;

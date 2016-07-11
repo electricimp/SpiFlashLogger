@@ -121,6 +121,134 @@ class SPIFlashLogger {
         _disable();
     }
 
+    function read(onData = null, onFinish = null, step = 1, skip = 0) {
+        assert(typeof step == "integer" && step != 0);
+
+        local skipped = math.abs(step) - skip - 1;
+        local count = 0;
+
+        local readSector;
+        readSector = function(i) {
+
+            if (i >= _sectors){
+                if (onFinish != null) {
+                    return onFinish()
+                }
+                return;
+            };
+
+            local sector;
+            if (step > 0) {
+                sector = (_at_sec + i + 1) % _sectors;
+            } else {
+                sector = (_at_sec - i + _sectors) % _sectors;
+            }
+            server.log(format("reading sector %d", sector));
+            local addrs_b = _getObjAddrs(sector);
+
+            if (addrs_b.len() == 0) {
+                return imp.wakeup(0, function() {
+                    readSector(i + 1);
+                }.bindenv(this))
+            };
+
+            /* server.log(format("Got %d addresses in sector %d", addrs_b.len() / 2, sector)); */
+
+            local addr, spi_addr, obj, readObj, cont, seekTo;
+
+            cont = function(keepGoing = true) {
+                if (keepGoing == false) {
+                    // Clean up and exit
+                    addrs_b = obj = null;
+                    if (onFinish != null) return onFinish();
+                    else return;
+                }
+                if((addrs_b.seek(seekTo, 'c') == -1 || addrs_b.eos() == 1)) {
+                    return imp.wakeup(0, function() {
+                        readSector(i + 1);
+                    }.bindenv(this));
+                } else {
+                    return imp.wakeup(0, readObj.bindenv(this));
+                }
+            };
+
+            if (step < 0) {
+                addrs_b.seek(-2, 'e');
+            }
+
+            readObj =  function() {
+                
+                if (++skipped == math.abs(step)) {
+                    skipped = 0;
+                    addr = addrs_b.readn('w');
+                    spi_addr = _start + sector * SPIFLASHLOGGER_SECTOR_SIZE + SPIFLASHLOGGER_SECTOR_META_SIZE + addr;
+                    obj = _getObj(spi_addr);
+
+                    if (step < 0) seekTo = -4;
+                    else seekTo = 0
+
+                    return onData(obj, spi_addr, cont.bindenv(this));
+
+                } else {
+                    if (step < 0) seekTo = -2;
+                    else seekTo = 2
+
+                    return cont();
+
+                }
+
+            }.bindenv(this);
+
+            imp.wakeup(0, readObj.bindenv(this));  // start reading objects
+
+        }.bindenv(this)
+
+        imp.wakeup(0, function() {
+            readSector(0); // start reading sectors
+        });
+    }
+
+    function erase(addr = null) {
+        if (addr == null) return _eraseAll();
+        else return _eraseObject(addr);
+    }
+
+    function getPosition() {
+        // Return the current pointer (sector + offset)
+        return _at_sec * SPIFLASHLOGGER_SECTOR_SIZE + _at_pos;
+    }
+
+    function setPosition(position) {
+        // Grab the sector and offset from the position
+        local sector = position / SPIFLASHLOGGER_SECTOR_SIZE;
+        local offset = position % SPIFLASHLOGGER_SECTOR_SIZE;
+
+        // Validate sector and position
+        if (sector < 0 || sector >= _sectors) throw "Position out of range";
+
+        // Set the current sector and position
+        _at_sec = sector;
+        _at_pos = offset;
+    }
+
+    function _enable() {
+        // Check _enables then increment
+        if (_enables == 0) {
+            _flash.enable();
+        }
+
+        _enables += 1;
+    }
+
+    function _disable() {
+        // Decrement _enables then check
+        _enables -= 1;
+
+        if (_enables == 0)  {
+            _flash.disable();
+        }
+    }
+
     function _getObj(pos, cb = null) {
         _enable();
         local meta = _flash.read(pos, SPIFLASHLOGGER_OBJECT_MARKER_SIZE).tostring();
@@ -168,9 +296,7 @@ class SPIFlashLogger {
         else return obj;
     }
 
-    /**
-     * Returns a blob of 16 bit address of starts of objects, relative to sector body start 
-     */
+    // Returns a blob of 16 bit address of starts of objects, relative to sector body start 
     function _getObjAddrs(sector_idx) {
         local from = 0,        // index to search form 
               addrs = blob(),  // addresses of starts of objects
@@ -197,223 +323,6 @@ class SPIFlashLogger {
 
         addrs.seek(0);
         return addrs;
-    }
-
-    function readSync(onData = null, onFinish = null, step = 1, skip = 0) {
-        assert(typeof step == "integer" && step != 0);
-        /* server.log(math.abs(step)); */
-
-        local skipped = math.abs(step) - skip - 1;
-        
-        for (local i = 0; i < _sectors; i++) {
-
-            local sector = _at_sec + i;
-            local addrs_b = _getObjAddrs(sector);
-            if (addrs_b.len() == 0) continue;
-            server.log(format("Got %d addresses in sector %d", addrs_b.len() / 2, sector));
-            local addr, spi_addr, obj;
-            if (step < 0) {
-                addrs_b.seek(-2, 'e');
-            }
-
-            while(true) {
-                local seekTo;
-
-                if (++skipped == math.abs(step)) {
-                    skipped = 0;
-                    addr = addrs_b.readn('w');
-                    spi_addr = _start + sector * SPIFLASHLOGGER_SECTOR_SIZE + SPIFLASHLOGGER_SECTOR_META_SIZE + addr;
-                    obj = _getObj(spi_addr);
-
-                    onData(obj, function(){});
-
-                    if (step < 0) seekTo = -4;
-                    else seekTo = 0
-                } else {
-                    if (step < 0) seekTo = -2;
-                    else seekTo = 2
-                }
-
-                if((addrs_b.seek(seekTo, 'c') == -1 || addrs_b.eos() == 1)) break;
-            }
-
-        }
-        if (onFinish != null) onFinish()
-    }
-
-    function read(onData = null, onFinish = null, step = 1, skip = 0) {
-        assert(typeof step == "integer" && step != 0);
-        /* server.log(math.abs(step)); */
-
-        local skipped = math.abs(step) - skip - 1;
-        local count = 0;
-
-        local readSector;
-        readSector = function(i) {
-
-            if (i >= _sectors){
-                if (onFinish != null) {
-                    return onFinish()
-                }
-                return;
-            };
-
-            local sector;
-            if (step > 0) {
-                sector = (_at_sec + i + 1) % _sectors;
-            } else {
-                sector = (_at_sec - i + _sectors) % _sectors;
-            }
-            server.log(format("reading sector %d", sector));
-            local addrs_b = _getObjAddrs(sector);
-
-            if (addrs_b.len() == 0) {
-                return imp.wakeup(0, function() {
-                    readSector(i + 1);
-                }.bindenv(this))
-            };
-
-            /* server.log(format("Got %d addresses in sector %d", addrs_b.len() / 2, sector)); */
-
-            local addr, spi_addr, obj, readObj, cont, seekTo;
-
-            cont = function() {
-                if((addrs_b.seek(seekTo, 'c') == -1 || addrs_b.eos() == 1)) {
-                    return imp.wakeup(0, function() {
-                        readSector(i + 1);
-                    }.bindenv(this));
-                } else {
-                    return imp.wakeup(0, readObj.bindenv(this));
-                }
-            };
-
-
-            /* if (i == 0) { */
-            /*     // First sector being read, we are inside it somewhere */
-            /*     local addr; */
-            /*     do { */
-            /*         addr = addrs_b.readn('w'); */
-            /*     } while (addr < _at_pos); */
-            /* } else */
-            if (step < 0) {
-                addrs_b.seek(-2, 'e');
-            }
-
-            readObj =  function() {
-                /* local seekTo; */
-                
-                if (++skipped == math.abs(step)) {
-                    skipped = 0;
-                    addr = addrs_b.readn('w');
-                    spi_addr = _start + sector * SPIFLASHLOGGER_SECTOR_SIZE + SPIFLASHLOGGER_SECTOR_META_SIZE + addr;
-                    obj = _getObj(spi_addr);
-
-                    if (step < 0) seekTo = -4;
-                    else seekTo = 0
-
-                    return onData(obj, spi_addr, cont.bindenv(this));
-
-                } else {
-                    if (step < 0) seekTo = -2;
-                    else seekTo = 2
-
-                    return cont();
-
-                }
-
-            }.bindenv(this);
-
-            imp.wakeup(0, readObj.bindenv(this));  // start reading objects
-
-        }.bindenv(this)
-
-        imp.wakeup(0, function() {
-            readSector(0); // start reading sectors
-        });
-    }
-
-    function first() {
-
-        // Read in one object at a time and keep the very first one
-        local obj = null;        
-        readSync(function(object) {
-            // Keep the first pointer
-            obj = object;
-            return true;
-        }.bindenv(this))
-        return obj
-        
-    }
-
-    // Erases the marker to make an object invisible
-    function eraseObject(addr) {
-
-        if (addr == null) return false;
-
-        // Erase the marker for the entry we found 
-        _enable();
-        local check = _flash.read(addr, SPIFLASHLOGGER_OBJECT_MARKER_SIZE);
-        if (check.tostring() != SPIFLASHLOGGER_OBJECT_MARKER) {
-            server.error("Object address invalid. No marker found.")
-            _disable();
-            return false;
-        }
-        local clear = blob(SPIFLASHLOGGER_OBJECT_MARKER_SIZE);
-        local res = _flash.write(addr, clear, SPIFLASH_POSTVERIFY);
-        _disable();
-
-        if (res != 0) {
-            server.error("Clearing object marker failed.");
-            return false;
-        } 
-        
-        return true;
-        
-    }
-    
-    function erase() {
-        for (local sector = 0; sector < _sectors; sector++) {
-            if (_map[sector] == SPIFLASHLOGGER_SECTOR_DIRTY) {
-                _erase(sector);
-            }
-        }
-    }
-
-    function getPosition() {
-        // Return the current pointer (sector + offset)
-        return _at_sec * SPIFLASHLOGGER_SECTOR_SIZE + _at_pos;
-    }
-
-    function setPosition(position) {
-        // Grab the sector and offset from the position
-        local sector = position / SPIFLASHLOGGER_SECTOR_SIZE;
-        local offset = position % SPIFLASHLOGGER_SECTOR_SIZE;
-
-        // Validate sector and position
-        if (sector < 0 || sector >= _sectors) throw "Position out of range";
-
-        // Set the current sector and position
-        _at_sec = sector;
-        _at_pos = offset;
-    }
-
-    function _enable() {
-        // Check _enables then increment
-        if (_enables == 0) {
-            _flash.enable();
-        }
-
-        _enables += 1;
-    }
-
-    function _disable() {
-        // Decrement _enables then check
-        _enables -= 1;
-
-        if (_enables == 0)  {
-            _flash.disable();
-        }
-
     }
 
     function _write(object, sector, pos, object_pos = 0, len = null) {
@@ -464,6 +373,40 @@ class SPIFlashLogger {
         }
 
         return len;
+    }
+
+    // Erases the marker to make an object invisible
+    function _eraseObject(addr) {
+
+        if (addr == null) return false;
+
+        // Erase the marker for the entry we found 
+        _enable();
+        local check = _flash.read(addr, SPIFLASHLOGGER_OBJECT_MARKER_SIZE);
+        if (check.tostring() != SPIFLASHLOGGER_OBJECT_MARKER) {
+            server.error("Object address invalid. No marker found.")
+            _disable();
+            return false;
+        }
+        local clear = blob(SPIFLASHLOGGER_OBJECT_MARKER_SIZE);
+        local res = _flash.write(addr, clear, SPIFLASH_POSTVERIFY);
+        _disable();
+
+        if (res != 0) {
+            server.error("Clearing object marker failed.");
+            return false;
+        } 
+        
+        return true;
+        
+    }
+    
+    function _eraseAll() {
+        for (local sector = 0; sector < _sectors; sector++) {
+            if (_map[sector] == SPIFLASHLOGGER_SECTOR_DIRTY) {
+                _erase(sector);
+            }
+        }
     }
 
     function _getSectorMetadata(sector) {
@@ -519,7 +462,6 @@ class SPIFlashLogger {
             local mod = 1 << bit;
             _at_pos += (~best_map & mod) ? SPIFLASHLOGGER_CHUNK_SIZE : 0;
         }
-
     }
 
     function _erase(start_sector = null, end_sector = null, preparing = false) {
@@ -550,6 +492,5 @@ class SPIFlashLogger {
             }
         }
         _disable();
-
     }
 }
