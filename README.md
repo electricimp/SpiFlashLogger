@@ -1,14 +1,12 @@
-# SPIFlashLogger 1.1.0
-
-## Warning: this readme is well out of date.  Stay tuned...
+# SPIFlashLogger 2.0.0
 
 The SPIFlashLogger manages all or a portion of a SPI flash (either via imp003+'s built-in [hardware.spiflash](https://electricimp.com/docs/api/hardware/spiflash) or any functionally compatible driver such as the [SPIFlash library](https://github.com/electricimp/spiflash)).
 
 The SPIFlashLogger creates a circular log system, allowing you to log any serializable object (table, array, string, blob, integer, float, boolean and `null`) to the SPIFlash. If the log systems runs out of space in the SPIFlash, it begins overwriting the oldest logs.
 
-**To add this library to your project, add `#require "SPIFlashLogger.class.nut:1.1.0"` to the top of your device code.**
+**To add this library to your project, add `#require "SPIFlashLogger.class.nut:2.0.0"` to the top of your device code.**
 
-You can view the library’s source code on [GitHub](https://github.com/electricimp/spiflashlogger/tree/v1.1.0).
+You can view the library’s source code on [GitHub](https://github.com/electricimp/spiflashlogger/tree/v2.0.0).
 
 ## Memory Efficiency
 
@@ -35,7 +33,7 @@ The SPIFlashLogger’s constructor takes four parameters, all of which are optio
 ```squirrel
 // Initializing a SPIFlashLogger on an imp003+
 #require "Serializer.class.nut:1.0.0"
-#require "SPIFlashLogger.class.nut:1.1.0"
+#require "SPIFlashLogger.class.nut:2.0.0"
 
 // Initialize Logger to use the entire SPI Flash
 logger <- SPIFlashLogger();
@@ -45,7 +43,7 @@ logger <- SPIFlashLogger();
 // Initializing a SPIFlashLogger on an imp002
 #require "Serializer.class.nut:1.0.0"
 #require "SPIFlash.class.nut:1.0.1"
-#require "SPIFlashLogger.class.nut:1.1.0"
+#require "SPIFlashLogger.class.nut:2.0.0"
 
 // Setup SPI Bus
 spi <- hardware.spi257;
@@ -89,34 +87,20 @@ function readAndSleep() {
 }
 ```
 
-### readSync(*onData*)
+### read(*onData[, onFinish, step, skip]*)
 
-The *readSync()* method performs a synchronous read of *all* logs that are currently stored, and invokes the *onData* callback for each (in the order they were logged). If the `onData` callback returns a value other than `null`, the scan is terminated.
+The *read()* method performs a synchronous scan but after finding an object the next scan doesn’t start until the *onData* callback code executes the *next()* method. This allows for the asynchronous processing of each log object, such as sending data to the agent and waiting for an acknowledgement. The method will continue to scan through all the logs, invoking the *onData* callback for each. The optional *onFinish* callback will be called after the last object is located (with no parameters).  `step` is an optional parameter controlling the rate at which the scan steps through objects, for example, setting `step == 2` will cause `onData` to be called only for every second object found.  Negative values are allowed for scanning through objects backwards, for example, `step == -1` will scan through all objects, starting from the most recently written and stepping backwards.  Skip can be used to skip a number of objects at the start of reading.  For example, a `step` of 2 and `skip` of 0 (the default) will call `onData` for every second object *starting from the first*, whereas with `skip == 1` it will be every second object *starting from the second*, thus the two options provide full coverage with no overlap.  As a potential use case, one might log two versions of each message: a short, concise version, and a longer, more detailed version.  `step == 2` could then be used to pick up only the concise versions.
 
-```squirrel
-local data = [];
-logger.readSync(function(dataPoint) {
-    // Push each datapoint into the data array
-    data.push(datapoint);
-});
+#### onData(object, address, next)
 
-agent.send("data", data);
-logger.erase();
-```
-
-### readAsync(*onData[, onFinish]*)
-
-The *readAsync()* method performs a synchronous scan but after finding an object the next scan doesn’t start until the *onData* callback code executes the *next()* method. This allows for the asynchronous processing of each log object, such as sending data to the agent and waiting for an acknowledgement. The method will cotinue to scan through all the logs, invoking the *onData* callback for each in the order they were logged. The optional *onFinish* callback will be called after the last object is located.
-
-Unlike the *readSync()* method, *readAsync()* needs to erase the log entries as they are processed in order to prevent them from being scanned multiple times. There is no need erase the log entries manually.
-
-If the *onData* callback returns a value other than `null`, the scan is terminated. If the return value is `true` then the scan is terminated and the current entry is erased. For all other return values, the scan is terminated but the current entry is not erased. Similarly, the same values (`true`, `false`) can be passed into the *next()* method.
+The on data callback is called for each requested object with three parameters: the deserialized object, the SPIFlash address of the (start of) the object, and a `next` callback.  Reading an object does not erase it, but the object can be erased in the body of `onData` by passing `address` to `erase()`.  `onData` should call next when it is is ready to scan for the next item.  Passing `false` to `next` aborts the scanning, skipping to `onFinish`
 
 ```squirrel
-logger.readAsync(
+logger.read(
     // For each object in the logs
-    function(dataPoint, next) {
+    function(dataPoint, addr, next) {
         // Send the dataPoint to the agent
+        server.log(format("Found object at spiflash address %d", addr))
         agent.send("data", dataPoint);
         // Wait a little while for it to arrive
         imp.wakeup(0.5, next);
@@ -129,29 +113,9 @@ logger.readAsync(
 );
 ```
 
-### first()
+### erase(addr)
 
-This method returns the first object written to the log that hasn’t been erased, ie. the oldest entry in the flash.
-
-```squirrel
-logger.write("This is the oldest");
-logger.write("This is the newest");
-assert(logger.first() == "This is the oldest");
-```
-
-### last()
-
-This method returns the last object written to the log that hasn’t been erased, ie. the newest entry in the flash.
-
-```squirrel
-logger.write("This is the oldest");
-logger.write("This is the newest");
-assert(logger.last() == "This is the newest");
-```
-
-### erase()
-
-This method erases all memory allocated to the SPIFlash logger. See *readSync()* for sample usage.
+This method erases an object at spiflash address `addr` by marking it erased.  If `addr` is not given, it will (really) erase all allocated memory.
 
 ### getPosition()
 
@@ -189,7 +153,7 @@ else nv.count++;
 // If we have more than 100 samples
 if (nv.count > 100) {
     // Send the samples to the agent
-    logger.readAsync(
+    logger.read(
         function(dataPoint, next) {
             // Send the dataPoint to the agent
             agent.send("data", dataPoint);
