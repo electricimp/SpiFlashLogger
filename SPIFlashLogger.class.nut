@@ -60,6 +60,7 @@ class SPIFlashLogger {
         // Validate the start/end values
         if (_start >= _size) throw "Invalid start parameter (start must be < size of SPI flash";
         if (_end <= _start) throw "Invalid end parameter (end must be > start)";
+        if (_end > _size) throw "Invalid end parameter (end must be <= size of SPI flash)";
         if (_start % SPIFLASHLOGGER_SECTOR_SIZE != 0) throw "Invalid start parameter (start must be at a sector boundary)";
         if (_end % SPIFLASHLOGGER_SECTOR_SIZE != 0) throw "Invalid end parameter (end must be at a sector boundary)";
 
