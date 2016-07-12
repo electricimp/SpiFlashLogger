@@ -1,0 +1,14 @@
+{
+    "modelId": "-Ah71ECh-rlK" /* SpiFlashLogger */,
+    "devices": [
+        "30000c2a690bdb9f" /* 30000c2a690bdcca */
+    ],
+    "agentFile": "build/agent.nut",
+    "deviceFile": "build/device.nut",
+    "stopOnFailure": false,
+    "timeout": 30,
+    "tests": [
+        "*.test.nut",
+        "tests/**/*.test.nut"
+    ]
+}

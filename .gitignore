@@ -1,0 +1,8 @@
+**/*.swp
+**/TODO.md
+build_api_key
+settings.wrench
+build/*
+logs/*
+**/*.bak
+**/*.bkp
