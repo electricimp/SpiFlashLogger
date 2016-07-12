@@ -119,9 +119,9 @@ logger.read(
 );
 ```
 
-### erase(addr)
+### erase(*[addr]*)
 
-This method erases an object at spiflash address `addr` by marking it erased.  If `addr` is not given, it will (really) erase all allocated memory.
+This method erases an object at spiflash address `addr` by marking it erased.  If `addr` is not given, it will (properly) erase all allocated memory.
 
 ### getPosition()
 
@@ -160,7 +160,7 @@ else nv.count++;
 if (nv.count > 100) {
     // Send the samples to the agent
     logger.read(
-        function(dataPoint, next) {
+        function(dataPoint, addr, next) {
             // Send the dataPoint to the agent
             agent.send("data", dataPoint);
             // Wait a little while for it to arrive

@@ -1,4 +1,4 @@
-class TestCase extends ImpTestCase {
+class TestFillErUp extends ImpTestCase {
     _logger = null;
 
     function setUp() {
@@ -23,11 +23,4 @@ class TestCase extends ImpTestCase {
             _logger.write(i);
         }
     }
-
-    // End tests
-
-    function tearDown() {
-        return;
-    }
-
 }

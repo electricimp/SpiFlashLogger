@@ -1,4 +1,4 @@
-class TestOneSectorForward extends ImpTestCase {
+class TestErasure extends ImpTestCase {
     _logger = null;
 
     function setUp() {
