@@ -1,0 +1,3 @@
+[submodule "libs/Serializer"]
+	path = libs/Serializer
+	url = https://github.com/electricimp/Serializer

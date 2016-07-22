@@ -20,7 +20,7 @@ const SPIFLASHLOGGER_SECTOR_CLEAN = 0xFF;       // Flag for clean sectors
 
 class SPIFlashLogger {
 
-    static version = [1,1,0];
+    static version = [2,0,0];
 
     _flash = null;      // hardware.spiflash or an object with an equivalent interface
     _serializer = null; // github.com/electricimp/serializer (or an object with an equivalent interface)
@@ -60,6 +60,7 @@ class SPIFlashLogger {
         // Validate the start/end values
         if (_start >= _size) throw "Invalid start parameter (start must be < size of SPI flash";
         if (_end <= _start) throw "Invalid end parameter (end must be > start)";
+        if (_end > _size) throw "Invalid end parameter (end must be <= size of SPI flash)";
         if (_start % SPIFLASHLOGGER_SECTOR_SIZE != 0) throw "Invalid start parameter (start must be at a sector boundary)";
         if (_end % SPIFLASHLOGGER_SECTOR_SIZE != 0) throw "Invalid end parameter (end must be at a sector boundary)";
 
@@ -76,7 +77,7 @@ class SPIFlashLogger {
     }
 
     function dimensions() {
-        return { "size": _size, "len": _len, "start": _start, "end": _end, "sectors": _sectors, "SPIFLASHLOGGER_SECTOR_SIZE": SPIFLASHLOGGER_SECTOR_SIZE }
+        return { "size": _size, "len": _len, "start": _start, "end": _end, "sectors": _sectors, "sector_size": SPIFLASHLOGGER_SECTOR_SIZE }
     }
 
     function write(object) {
@@ -121,228 +122,96 @@ class SPIFlashLogger {
         _disable();
     }
 
-    function readSync(onData, first = false) {
-        local serialised_object = blob();
-        local object_location = null;
+    function read(onData = null, onFinish = null, step = 1, skip = 0) {
+        assert(typeof step == "integer" && step != 0);
 
-        _enable();
-        for (local i = 0; i < _sectors; i++) {
-            local sector = (_at_sec+i+1) % _sectors;
+        local skipped = math.abs(step) - skip - 1;
+        local count = 0;
 
-            // Ignore clean sectors
-            if (_map[sector] != SPIFLASHLOGGER_SECTOR_DIRTY) continue;
+        local readSector;
+        readSector = function(i) {
 
-            // Read the whole body in. We could read in just the dirty chunks but for now this is easier
-            local start = _start + (sector * SPIFLASHLOGGER_SECTOR_SIZE);
-            local data = _flash.read(start + SPIFLASHLOGGER_SECTOR_META_SIZE, SPIFLASHLOGGER_SECTOR_BODY_SIZE);
-            local data_str = data.tostring();
-
-            local find_pos = 0;
-            while (find_pos < data.len()) {
-                if (serialised_object.len() == 0) {
-                    // We are at the start of a new object, so search for a header in the data
-                    local header_loc = data_str.find(SPIFLASHLOGGER_OBJECT_MARKER, find_pos);
-                    if (header_loc != null) {
-                        
-                        // Record where we found the header
-                        object_location = start + SPIFLASHLOGGER_SECTOR_META_SIZE + header_loc;
-                        
-                        // Get the length of the object and make a blob to receive it
-                        data.seek(header_loc + SPIFLASHLOGGER_OBJECT_MARKER_SIZE);
-                        local len = data.readn('w');
-                        serialised_object = blob(SPIFLASHLOGGER_OBJECT_HDR_SIZE + len);
-
-                        // Now reenter the loop to receive the data into the new blob
-                        data.seek(header_loc);
-                        find_pos = header_loc;
-                        continue;
-
-                    } else {
-                        // No object header found, so skip to the next sector
-                        break;
-                    }
-                } else {
-                    // Work out how much is required to fill the serialised object blob and available in the sector
-                    local rem_in_sector = data.len() - data.tell();
-                    local rem_in_object = serialised_object.len() - serialised_object.tell();
-                    local rem_to_copy = (rem_in_sector <= rem_in_object) ? rem_in_sector : rem_in_object;
-
-                    // Copy only as much as is required and available
-                    serialised_object.writeblob(data.readblob(rem_to_copy));
-
-                    // If we have finished filling the serialised object then deserialise it
-                    local rem_in_object = serialised_object.len() - serialised_object.tell();
-                    if (rem_in_object == 0) {
-                        local object;
-                        try {
-                            object = _serializer.deserialize(serialised_object, SPIFLASHLOGGER_OBJECT_MARKER);
-                        } catch (e) {
-                            server.error(format("Deserialisation error at 0x%06x: %s", object_location, e));
-                            // server.error(format("serialised_object contained [%d]: %s ... ", serialised_object.len(), Utils.logBin(serialised_object, 0, 20)))
-
-                            find_pos++;
-                            serialised_object.resize(0);
-                            object_location = null;
-                            continue;
-                        }
-
-                        // Disable before calling the onData callback
-                        _disable();
-                        
-                        local res = null;
-                        if (first) {
-                            // The caller only wants one object but also send the location of the object
-                            res = onData(object, object_location);
-                        } else {
-                            // This is a normal data object so don't share the location (just for backwards compatibility)
-                            res = onData(object);
-                            find_pos += rem_to_copy;
-                            serialised_object.resize(0);
-                            object_location = null;
-                        }
-                        
-                        // Bail here if we have to
-                        if (res != null || first) return res;
-                        
-                        // Renable the spiflash
-                        _enable();
-
-                    } else {
-                        find_pos += rem_to_copy;
-                    }
-
-                    // If we have run out of data in this sector, move onto the next sector
-                    local rem_in_sector = data.len() - data.tell();
-                    if (rem_in_sector == 0) {
-                        break;
-                    }
+            if (i >= _sectors){
+                if (onFinish != null) {
+                    return onFinish()
                 }
+                return;
+            };
 
+            local sector;
+            if (step > 0) {
+                sector = (_at_sec + i + 1) % _sectors;
+            } else {
+                sector = (_at_sec - i + _sectors) % _sectors;
             }
-        }
-        _disable();
-    }
-    
-    
-    function readAsync(onData, onFinish = null) {
-        
-        // Make the request async
-        imp.wakeup(0, function() {
-            
-            // Read in one object at a time
-            local empty = true;
-            readSync(function(object, location) {
+            server.log(format("reading sector %d", sector));
+            local addrs_b = _getObjAddrs(sector);
 
-                // Tell the outer scope that we are still looking for more objects
-                empty = false;
-
-                // Send to the normal event handler
-                local res = onData(object, function(cont = null) {
-                    
-                    // Don't allow the same handler to be called twice
-                    if (location == null) return;
-                    
-                    // Erase the entry as requested
-                    local res = null;
-                    if (cont == null || cont == true) {
-                        res = eraseObject(location);
-                    }
-                    
-                    // Prevent the handler from being called twice
-                    location = null;
-
-                    // Throw the callback if we are bailing out here                    
-                    if (!res || cont != null) {
-                        if (onFinish) onFinish();
-                        return;
-                    }
-
-                    // Start the scanning process again.
-                    // NOTE: It would be more efficient / faster to pass in the current location as a parameter
-                    //       and then use that as the starting location in the next scan. But for now we are
-                    //       keeping things simple (and a little slow);
-                    readAsync(onData, onFinish);
-                    
+            if (addrs_b.len() == 0) {
+                return imp.wakeup(0, function() {
+                    readSector(i + 1);
                 }.bindenv(this))
-                
-                // Handle a response to the callback by aborting early
-                if (res != null) {
-                    
-                    // Erase the object if we get a true
-                    if (res == true) eraseObject(location);
-                    
-                    // Bail out now
-                    location = null;
-                    if (onFinish) onFinish();
+            };
+
+            /* server.log(format("Got %d addresses in sector %d", addrs_b.len() / 2, sector)); */
+
+            local addr, spi_addr, obj, readObj, cont, seekTo;
+
+            cont = function(keepGoing = true) {
+                if (keepGoing == false) {
+                    // Clean up and exit
+                    addrs_b = obj = null;
+                    if (onFinish != null) return onFinish();
+                    else return;
                 }
-            }.bindenv(this), true)
-            
-            // Is the flash empty?
-            if (empty && onFinish) {
-                onFinish();
+                if((addrs_b.seek(seekTo, 'c') == -1 || addrs_b.eos() == 1)) {
+                    return imp.wakeup(0, function() {
+                        readSector(i + 1);
+                    }.bindenv(this));
+                } else {
+                    return imp.wakeup(0, readObj.bindenv(this));
+                }
+            };
+
+            if (step < 0) {
+                addrs_b.seek(-2, 'e');
             }
-        }.bindenv(this))
-        
+
+            readObj =  function() {
+
+                if (++skipped == math.abs(step)) {
+                    skipped = 0;
+                    addr = addrs_b.readn('w');
+                    spi_addr = _start + sector * SPIFLASHLOGGER_SECTOR_SIZE + SPIFLASHLOGGER_SECTOR_META_SIZE + addr;
+                    obj = _getObj(spi_addr);
+
+                    if (step < 0) seekTo = -4;
+                    else seekTo = 0
+
+                    return onData(obj, spi_addr, cont.bindenv(this));
+
+                } else {
+                    if (step < 0) seekTo = -2;
+                    else seekTo = 2
+
+                    return cont();
+
+                }
+
+            }.bindenv(this);
+
+            imp.wakeup(0, readObj.bindenv(this));  // start reading objects
+
+        }.bindenv(this)
+
+        imp.wakeup(0, function() {
+            readSector(0); // start reading sectors
+        });
     }
 
-
-    function last() {
-
-        // Read in one object at a time and keep the very last one
-        local obj = null;        
-        readSync(function(object) {
-            // Keep the last pointer
-            obj = object;
-        }.bindenv(this))
-        return obj
-        
-    }
-
-    function first() {
-
-        // Read in one object at a time and keep the very first one
-        local obj = null;        
-        readSync(function(object) {
-            // Keep the first pointer
-            obj = object;
-            return true;
-        }.bindenv(this))
-        return obj
-        
-    }
-
-    // Erases the marker to make an object invisible
-    function eraseObject(addr) {
-
-        if (addr == null) return false;
-
-        // Erase the marker for the entry we found 
-        _enable();
-        local check = _flash.read(addr, SPIFLASHLOGGER_OBJECT_MARKER_SIZE);
-        if (check.tostring() != SPIFLASHLOGGER_OBJECT_MARKER) {
-            server.error("Object address invalid. No marker found.")
-            _disable();
-            return false;
-        }
-        local clear = blob(SPIFLASHLOGGER_OBJECT_MARKER_SIZE);
-        local res = _flash.write(addr, clear, SPIFLASH_POSTVERIFY);
-        _disable();
-
-        if (res != 0) {
-            server.error("Clearing object marker failed.");
-            return false;
-        } 
-        
-        return true;
-        
-    }
-    
-    function erase() {
-        for (local sector = 0; sector < _sectors; sector++) {
-            if (_map[sector] == SPIFLASHLOGGER_SECTOR_DIRTY) {
-                _erase(sector);
-            }
-        }
+    function erase(addr = null) {
+        if (addr == null) return _eraseAll();
+        else return _eraseObject(addr);
     }
 
     function getPosition() {
@@ -379,7 +248,82 @@ class SPIFlashLogger {
         if (_enables == 0)  {
             _flash.disable();
         }
+    }
 
+    function _getObj(pos, cb = null) {
+        _enable();
+        local meta = _flash.read(pos, SPIFLASHLOGGER_OBJECT_MARKER_SIZE).tostring();
+        local len = _flash.read(pos + SPIFLASHLOGGER_OBJECT_MARKER_SIZE, 2).readn('w');
+        _disable();
+
+        if (meta != SPIFLASHLOGGER_OBJECT_MARKER) {
+            throw "Error, meta not found at " + pos;
+        }
+
+        local serialised = blob(SPIFLASHLOGGER_OBJECT_HDR_SIZE + len);
+
+        local leftInObject;
+        _enable();
+        while (leftInObject = serialised.len() - serialised.tell()) {
+            local sectorStart = pos - (pos % SPIFLASHLOGGER_SECTOR_SIZE);
+            local sectorEnd = sectorStart + SPIFLASHLOGGER_SECTOR_SIZE;// MINUS ONE?
+            local leftInSector = sectorEnd - pos;
+            /* local sector = sectorStart / SPIFLASHLOGGER_SECTOR_SIZE; */
+
+            local read;
+            if (leftInObject < leftInSector) {
+                read = _flash.read(pos, leftInObject);
+                assert(read.len() == leftInObject);
+            } else {
+                read = _flash.read(pos, leftInSector);
+                assert(read.len() == leftInSector);
+            }
+
+            serialised.writeblob(read);
+
+            leftInObject -= read.len();
+
+            pos += read.len();
+            assert (pos <= sectorEnd);
+
+            if (pos == _end) pos = _start + SPIFLASHLOGGER_SECTOR_META_SIZE;
+            else if (pos == sectorEnd) pos += SPIFLASHLOGGER_SECTOR_META_SIZE;
+
+        }
+        _disable();
+
+        local obj = _serializer.deserialize(serialised, SPIFLASHLOGGER_OBJECT_MARKER);
+        if (cb) cb(obj);
+        else return obj;
+    }
+
+    // Returns a blob of 16 bit address of starts of objects, relative to sector body start
+    function _getObjAddrs(sector_idx) {
+        local from = 0,        // index to search form
+              addrs = blob(),  // addresses of starts of objects
+              found;
+
+        // Sector clean
+        if (_map[sector_idx] != SPIFLASHLOGGER_SECTOR_DIRTY) return addrs;
+
+        local data_start = _start + sector_idx * SPIFLASHLOGGER_SECTOR_SIZE + SPIFLASHLOGGER_SECTOR_META_SIZE;
+        server.log(format("starting from %d", data_start));
+        local readLength = _dirtyChunkCount(sector_idx) * SPIFLASHLOGGER_CHUNK_SIZE;
+        if (readLength > SPIFLASHLOGGER_SECTOR_BODY_SIZE) readLength = SPIFLASHLOGGER_SECTOR_BODY_SIZE;
+        _enable();
+        local sector_data = _flash.read(data_start, readLength).tostring();
+        _disable();
+        if (sector_data == null) return addrs;
+
+        while ((found = sector_data.find(SPIFLASHLOGGER_OBJECT_MARKER, from)) != null) {
+            // Found an object start, save the address
+            addrs.writen(found, 'w');
+            // Skip the one we just found the next time around
+            from = found + 1;
+        }
+
+        addrs.seek(0);
+        return addrs;
     }
 
     function _write(object, sector, pos, object_pos = 0, len = null) {
@@ -420,15 +364,50 @@ class SPIFlashLogger {
         _flash.write(start, meta, SPIFLASH_POSTVERIFY);
         local res = _flash.write(start + pos, object, SPIFLASH_POSTVERIFY, object_pos, object_pos+len);
         _disable();
-        
+
         if (res != 0) {
             server.error(format("Writing failed from object position %d of %d, to 0x%06x (meta), 0x%06x (body)", object_pos, len, start, start + pos));
+            throw format("Writing failed from object position %d of %d, to 0x%06x (meta), 0x%06x (body)", object_pos, len, start, start + pos)
             return null;
         } else {
             // server.log(format("Written to: 0x%06x (meta), 0x%06x (body) of: %d", start, start + pos, object_pos));
         }
 
         return len;
+    }
+
+    // Erases the marker to make an object invisible
+    function _eraseObject(addr) {
+
+        if (addr == null) return false;
+
+        // Erase the marker for the entry we found
+        _enable();
+        local check = _flash.read(addr, SPIFLASHLOGGER_OBJECT_MARKER_SIZE);
+        if (check.tostring() != SPIFLASHLOGGER_OBJECT_MARKER) {
+            server.error("Object address invalid. No marker found.")
+            _disable();
+            return false;
+        }
+        local clear = blob(SPIFLASHLOGGER_OBJECT_MARKER_SIZE);
+        local res = _flash.write(addr, clear, SPIFLASH_POSTVERIFY);
+        _disable();
+
+        if (res != 0) {
+            server.error("Clearing object marker failed.");
+            return false;
+        }
+
+        return true;
+
+    }
+
+    function _eraseAll() {
+        for (local sector = 0; sector < _sectors; sector++) {
+            if (_map[sector] == SPIFLASHLOGGER_SECTOR_DIRTY) {
+                _erase(sector);
+            }
+        }
     }
 
     function _getSectorMetadata(sector) {
@@ -441,6 +420,16 @@ class SPIFlashLogger {
         _disable();
 
         return { "id": meta.readn('i'), "map": meta.readn('w') };
+    }
+
+    function _dirtyChunkCount(sector) {
+        local map = _getSectorMetadata(sector).map;
+        local count, mask;
+        for (count = 0, mask = 0x0001; mask < 0x8000; mask = mask << 1) {
+            if (!(map & mask)) count++;
+            else break;
+        }
+        return count+1;// TODO: why was this plus one necessary?
     }
 
     function _init() {
@@ -474,7 +463,6 @@ class SPIFlashLogger {
             local mod = 1 << bit;
             _at_pos += (~best_map & mod) ? SPIFLASHLOGGER_CHUNK_SIZE : 0;
         }
-
     }
 
     function _erase(start_sector = null, end_sector = null, preparing = false) {
@@ -505,6 +493,5 @@ class SPIFlashLogger {
             }
         }
         _disable();
-
     }
 }
