@@ -163,6 +163,8 @@ if (nv.count > 100) {
         function(dataPoint, addr, next) {
             // Send the dataPoint to the agent
             agent.send("data", dataPoint);
+            // Erase it from the logger
+            logger.erase(addr);
             // Wait a little while for it to arrive
             imp.wakeup(0.5, next);
         },
