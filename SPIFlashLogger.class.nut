@@ -125,9 +125,11 @@ class SPIFlashLogger {
     function read(onData = null, onFinish = null, step = 1, skip = 0) {
         assert(typeof step == "integer" && step != 0);
 
+        // skipped tracks how many entries we have skipped, in order to implement skip
         local skipped = math.abs(step) - skip - 1;
         local count = 0;
 
+        // function to read one sector, optionally continuing to the next one
         local readSector;
         readSector = function(i) {
 
@@ -138,13 +140,14 @@ class SPIFlashLogger {
                 return;
             };
 
+            // convert sector index `i`, ordered by recency, to physical `sector`, ordered by position on disk
             local sector;
             if (step > 0) {
                 sector = (_at_sec + i + 1) % _sectors;
             } else {
                 sector = (_at_sec - i + _sectors) % _sectors;
             }
-            server.log(format("reading sector %d", sector));
+
             local addrs_b = _getObjAddrs(sector);
 
             if (addrs_b.len() == 0) {
@@ -153,10 +156,10 @@ class SPIFlashLogger {
                 }.bindenv(this))
             };
 
-            /* server.log(format("Got %d addresses in sector %d", addrs_b.len() / 2, sector)); */
 
             local addr, spi_addr, obj, readObj, cont, seekTo;
 
+            // Passed in to the read callback to be called as `next`
             cont = function(keepGoing = true) {
                 if (keepGoing == false) {
                     // Clean up and exit
@@ -164,43 +167,56 @@ class SPIFlashLogger {
                     if (onFinish != null) return onFinish();
                     else return;
                 }
+                // Try to seek to the next available object
                 if((addrs_b.seek(seekTo, 'c') == -1 || addrs_b.eos() == 1)) {
+                    // If we've exhausted all addresses sound in this sector, move on to the next
                     return imp.wakeup(0, function() {
                         readSector(i + 1);
                     }.bindenv(this));
                 } else {
+                    // There are more objects to read, read the next one
                     return imp.wakeup(0, readObj.bindenv(this));
                 }
             };
 
             if (step < 0) {
+                // negative step, go backwards
+                // `skip` will take care of the magnitude of the steps
                 addrs_b.seek(-2, 'e');
             }
 
             readObj =  function() {
 
                 if (++skipped == math.abs(step)) {
+                    // We are not skipping this object, reset `skipped` count
                     skipped = 0;
+                    // Get the address (offset from the end of this sectors meta)
                     addr = addrs_b.readn('w');
+                    // Calculate the raw spiflash address
                     spi_addr = _start + sector * SPIFLASHLOGGER_SECTOR_SIZE + SPIFLASHLOGGER_SECTOR_META_SIZE + addr;
+                    // Read the object
                     obj = _getObj(spi_addr);
 
+                    // If we're moving backwards, do so, otherwise our blob cursor is
+                    // already moved forward by reading
                     if (step < 0) seekTo = -4;
                     else seekTo = 0
 
                     return onData(obj, spi_addr, cont.bindenv(this));
 
                 } else {
+                    // We need to skip more
                     if (step < 0) seekTo = -2;
                     else seekTo = 2
 
+                    // continue
                     return cont();
 
                 }
 
             }.bindenv(this);
 
-            imp.wakeup(0, readObj.bindenv(this));  // start reading objects
+            imp.wakeup(0, readObj.bindenv(this));  // start reading objects in this sector
 
         }.bindenv(this)
 
@@ -209,6 +225,7 @@ class SPIFlashLogger {
         });
     }
 
+    // Erases all dirty sectors
     function erase(addr = null) {
         if (addr == null) return _eraseAll();
         else return _eraseObject(addr);
@@ -250,8 +267,10 @@ class SPIFlashLogger {
         }
     }
 
+    // Gets the logged object at the specified position
     function _getObj(pos, cb = null) {
         _enable();
+        // Get the meta (for checking) and the object length (to know how much to read)
         local meta = _flash.read(pos, SPIFLASHLOGGER_OBJECT_MARKER_SIZE).tostring();
         local len = _flash.read(pos + SPIFLASHLOGGER_OBJECT_MARKER_SIZE, 2).readn('w');
         _disable();
@@ -264,12 +283,14 @@ class SPIFlashLogger {
 
         local leftInObject;
         _enable();
+        // while there is more object left, read as much as we can from each sector into `serialised`
         while (leftInObject = serialised.len() - serialised.tell()) {
+            // Decide what to read
             local sectorStart = pos - (pos % SPIFLASHLOGGER_SECTOR_SIZE);
             local sectorEnd = sectorStart + SPIFLASHLOGGER_SECTOR_SIZE;// MINUS ONE?
             local leftInSector = sectorEnd - pos;
-            /* local sector = sectorStart / SPIFLASHLOGGER_SECTOR_SIZE; */
 
+            // Read it
             local read;
             if (leftInObject < leftInSector) {
                 read = _flash.read(pos, leftInObject);
@@ -281,6 +302,7 @@ class SPIFlashLogger {
 
             serialised.writeblob(read);
 
+            // Update remaining and position
             leftInObject -= read.len();
 
             pos += read.len();
@@ -292,6 +314,7 @@ class SPIFlashLogger {
         }
         _disable();
 
+        // Deserialize the object
         local obj = _serializer.deserialize(serialised, SPIFLASHLOGGER_OBJECT_MARKER);
         if (cb) cb(obj);
         else return obj;
@@ -307,9 +330,7 @@ class SPIFlashLogger {
         if (_map[sector_idx] != SPIFLASHLOGGER_SECTOR_DIRTY) return addrs;
 
         local data_start = _start + sector_idx * SPIFLASHLOGGER_SECTOR_SIZE + SPIFLASHLOGGER_SECTOR_META_SIZE;
-        server.log(format("starting from %d", data_start));
-        local readLength = _dirtyChunkCount(sector_idx) * SPIFLASHLOGGER_CHUNK_SIZE;
-        if (readLength > SPIFLASHLOGGER_SECTOR_BODY_SIZE) readLength = SPIFLASHLOGGER_SECTOR_BODY_SIZE;
+        local readLength = SPIFLASHLOGGER_SECTOR_BODY_SIZE;
         _enable();
         local sector_data = _flash.read(data_start, readLength).tostring();
         _disable();
