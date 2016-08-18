@@ -77,7 +77,7 @@ class SPIFlashLogger {
     }
 
     function dimensions() {
-        return { "size": _size, "len": _len, "start": _start, "end": _end, "sectors": _sectors, "SPIFLASHLOGGER_SECTOR_SIZE": SPIFLASHLOGGER_SECTOR_SIZE }
+        return { "size": _size, "len": _len, "start": _start, "end": _end, "sectors": _sectors, "sector_size": SPIFLASHLOGGER_SECTOR_SIZE }
     }
 
     function write(object) {
@@ -178,7 +178,7 @@ class SPIFlashLogger {
             }
 
             readObj =  function() {
-                
+
                 if (++skipped == math.abs(step)) {
                     skipped = 0;
                     addr = addrs_b.readn('w');
@@ -297,9 +297,9 @@ class SPIFlashLogger {
         else return obj;
     }
 
-    // Returns a blob of 16 bit address of starts of objects, relative to sector body start 
+    // Returns a blob of 16 bit address of starts of objects, relative to sector body start
     function _getObjAddrs(sector_idx) {
-        local from = 0,        // index to search form 
+        local from = 0,        // index to search form
               addrs = blob(),  // addresses of starts of objects
               found;
 
@@ -364,7 +364,7 @@ class SPIFlashLogger {
         _flash.write(start, meta, SPIFLASH_POSTVERIFY);
         local res = _flash.write(start + pos, object, SPIFLASH_POSTVERIFY, object_pos, object_pos+len);
         _disable();
-        
+
         if (res != 0) {
             server.error(format("Writing failed from object position %d of %d, to 0x%06x (meta), 0x%06x (body)", object_pos, len, start, start + pos));
             throw format("Writing failed from object position %d of %d, to 0x%06x (meta), 0x%06x (body)", object_pos, len, start, start + pos)
@@ -381,7 +381,7 @@ class SPIFlashLogger {
 
         if (addr == null) return false;
 
-        // Erase the marker for the entry we found 
+        // Erase the marker for the entry we found
         _enable();
         local check = _flash.read(addr, SPIFLASHLOGGER_OBJECT_MARKER_SIZE);
         if (check.tostring() != SPIFLASHLOGGER_OBJECT_MARKER) {
@@ -396,12 +396,12 @@ class SPIFlashLogger {
         if (res != 0) {
             server.error("Clearing object marker failed.");
             return false;
-        } 
-        
+        }
+
         return true;
-        
+
     }
-    
+
     function _eraseAll() {
         for (local sector = 0; sector < _sectors; sector++) {
             if (_map[sector] == SPIFLASHLOGGER_SECTOR_DIRTY) {

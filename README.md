@@ -145,7 +145,6 @@ if ("nv" in getroottable() && "position" in nv) {
     // If we don't, grab the position points and set nv
     local position = logger.getPosition();
     nv <- { "position": position };
-    };
 }
 
 // Get some data and log it
@@ -153,8 +152,11 @@ data <- getData();
 logger.write(data);
 
 // Increment a counter
-if (!("count" in nv)) nv.count <- 1;
-else nv.count++;
+if (!("count" in nv)) {
+    nv.count <- 1;
+} else {
+    nv.count++;
+}
 
 // If we have more than 100 samples
 if (nv.count > 100) {
@@ -163,6 +165,8 @@ if (nv.count > 100) {
         function(dataPoint, addr, next) {
             // Send the dataPoint to the agent
             agent.send("data", dataPoint);
+            // Erase it from the logger
+            logger.erase(addr);
             // Wait a little while for it to arrive
             imp.wakeup(0.5, next);
         },
