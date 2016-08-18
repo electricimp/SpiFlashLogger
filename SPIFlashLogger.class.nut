@@ -144,7 +144,7 @@ class SPIFlashLogger {
             } else {
                 sector = (_at_sec - i + _sectors) % _sectors;
             }
-            server.log(format("reading sector %d", sector));
+
             local addrs_b = _getObjAddrs(sector);
 
             if (addrs_b.len() == 0) {
@@ -307,9 +307,7 @@ class SPIFlashLogger {
         if (_map[sector_idx] != SPIFLASHLOGGER_SECTOR_DIRTY) return addrs;
 
         local data_start = _start + sector_idx * SPIFLASHLOGGER_SECTOR_SIZE + SPIFLASHLOGGER_SECTOR_META_SIZE;
-        server.log(format("starting from %d", data_start));
-        local readLength = _dirtyChunkCount(sector_idx) * SPIFLASHLOGGER_CHUNK_SIZE;
-        if (readLength > SPIFLASHLOGGER_SECTOR_BODY_SIZE) readLength = SPIFLASHLOGGER_SECTOR_BODY_SIZE;
+        local readLength = SPIFLASHLOGGER_SECTOR_BODY_SIZE;
         _enable();
         local sector_data = _flash.read(data_start, readLength).tostring();
         _disable();
