@@ -86,7 +86,7 @@ class SPIFlashLogger {
         if (obj_len > _max_data) throw "Cannot store objects larger than alloted memory."
 
         // Serialize the object
-        local object = _serializer.serialize(object, SPIFLASHLOGGER_OBJECT_MARKER);
+        local obj = _serializer.serialize(object, SPIFLASHLOGGER_OBJECT_MARKER);
 
         _enable();
 
@@ -94,19 +94,20 @@ class SPIFlashLogger {
         local obj_pos = 0;
         local obj_remaining = obj_len;
         do {
+
             // How far are we from the end of the sector
             if (_at_pos < SPIFLASHLOGGER_SECTOR_META_SIZE) _at_pos = SPIFLASHLOGGER_SECTOR_META_SIZE;
             local sec_remaining = SPIFLASHLOGGER_SECTOR_SIZE - _at_pos;
             if (obj_remaining < sec_remaining) sec_remaining = obj_remaining;
 
             // We are too close to the end of the sector, skip to the next sector
-            if (sec_remaining < SPIFLASHLOGGER_OBJECT_MIN_SIZE) {
+            if (obj_pos == 0 && sec_remaining < SPIFLASHLOGGER_OBJECT_MIN_SIZE) {
                 _at_sec = (_at_sec + 1) % _sectors;
                 _at_pos = SPIFLASHLOGGER_SECTOR_META_SIZE;
             }
 
             // Now write the data
-            _write(object, _at_sec, _at_pos, obj_pos, sec_remaining);
+            _write(obj, _at_sec, _at_pos, obj_pos, sec_remaining);
             _map[_at_sec] = SPIFLASHLOGGER_SECTOR_DIRTY;
 
             // Update the positions
@@ -156,6 +157,12 @@ class SPIFlashLogger {
                 }.bindenv(this))
             };
 
+            if (step < 0) {
+                // negative step, go backwards
+                // `skip` will take care of the magnitude of the steps
+                addrs_b.seek(-2, 'e');
+            }
+
 
             local addr, spi_addr, obj, readObj, cont, seekTo;
 
@@ -164,11 +171,9 @@ class SPIFlashLogger {
                 if (keepGoing == false) {
                     // Clean up and exit
                     addrs_b = obj = null;
-                    if (onFinish != null) return onFinish();
-                    else return;
-                }
-                // Try to seek to the next available object
-                if((addrs_b.seek(seekTo, 'c') == -1 || addrs_b.eos() == 1)) {
+                    if (onFinish != null) onFinish();
+                } else if ((addrs_b.seek(seekTo, 'c') == -1 || addrs_b.eos() == 1)) {
+                    //  ^ Try to seek to the next available object
                     // If we've exhausted all addresses sound in this sector, move on to the next
                     return imp.wakeup(0, function() {
                         readSector(i + 1);
@@ -178,12 +183,6 @@ class SPIFlashLogger {
                     return imp.wakeup(0, readObj.bindenv(this));
                 }
             };
-
-            if (step < 0) {
-                // negative step, go backwards
-                // `skip` will take care of the magnitude of the steps
-                addrs_b.seek(-2, 'e');
-            }
 
             readObj =  function() {
 
@@ -269,14 +268,16 @@ class SPIFlashLogger {
 
     // Gets the logged object at the specified position
     function _getObj(pos, cb = null) {
+        local requested_pos = pos;
+
         _enable();
         // Get the meta (for checking) and the object length (to know how much to read)
-        local meta = _flash.read(pos, SPIFLASHLOGGER_OBJECT_MARKER_SIZE).tostring();
+        local marker = _flash.read(pos, SPIFLASHLOGGER_OBJECT_MARKER_SIZE).tostring();
         local len = _flash.read(pos + SPIFLASHLOGGER_OBJECT_MARKER_SIZE, 2).readn('w');
         _disable();
 
-        if (meta != SPIFLASHLOGGER_OBJECT_MARKER) {
-            throw "Error, meta not found at " + pos;
+        if (marker != SPIFLASHLOGGER_OBJECT_MARKER) {
+            throw "Error, marker not found at " + pos;
         }
 
         local serialised = blob(SPIFLASHLOGGER_OBJECT_HDR_SIZE + len);
@@ -314,8 +315,15 @@ class SPIFlashLogger {
         }
         _disable();
 
-        // Deserialize the object
-        local obj = _serializer.deserialize(serialised, SPIFLASHLOGGER_OBJECT_MARKER);
+        // Try to deserialize the object
+        local obj;
+        try {
+            obj = _serializer.deserialize(serialised, SPIFLASHLOGGER_OBJECT_MARKER);
+        } catch (e) {
+            server.error(format("Exception reading logger object address 0x%04x with length %d: %s", requested_pos, serialised.len(), e));
+            obj = null;
+        }
+
         if (cb) cb(obj);
         else return obj;
     }
@@ -387,7 +395,6 @@ class SPIFlashLogger {
         _disable();
 
         if (res != 0) {
-            server.error(format("Writing failed from object position %d of %d, to 0x%06x (meta), 0x%06x (body)", object_pos, len, start, start + pos));
             throw format("Writing failed from object position %d of %d, to 0x%06x (meta), 0x%06x (body)", object_pos, len, start, start + pos)
             return null;
         } else {
