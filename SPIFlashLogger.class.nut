@@ -226,7 +226,7 @@ class SPIFlashLogger {
 
     // Erases all dirty sectors, or an individual object
     function erase(addr = null) {
-        if (addr == null) return _eraseAll();
+        if (addr == null) return eraseAll();
         else return _eraseObject(addr);
     }
 
