@@ -224,10 +224,19 @@ class SPIFlashLogger {
         });
     }
 
-    // Erases all dirty sectors
+    // Erases all dirty sectors, or an individual object
     function erase(addr = null) {
         if (addr == null) return _eraseAll();
         else return _eraseObject(addr);
+    }
+
+    // Hard erase all sectors
+    function eraseAll(force = false) {
+        for (local sector = 0; sector < _sectors; sector++) {
+            if (force || _map[sector] == SPIFLASHLOGGER_SECTOR_DIRTY) {
+                _erase(sector);
+            }
+        }
     }
 
     function getPosition() {
@@ -428,14 +437,6 @@ class SPIFlashLogger {
 
         return true;
 
-    }
-
-    function _eraseAll() {
-        for (local sector = 0; sector < _sectors; sector++) {
-            if (_map[sector] == SPIFLASHLOGGER_SECTOR_DIRTY) {
-                _erase(sector);
-            }
-        }
     }
 
     function _getSectorMetadata(sector) {
