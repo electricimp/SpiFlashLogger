@@ -174,7 +174,7 @@ class SPIFlashLogger {
                     if (onFinish != null) onFinish();
                 } else if ((addrs_b.seek(seekTo, 'c') == -1 || addrs_b.eos() == 1)) {
                     //  ^ Try to seek to the next available object
-                    // If we've exhausted all addresses sound in this sector, move on to the next
+                    // If we've exhausted all addresses found in this sector, move on to the next
                     return imp.wakeup(0, function() {
                         readSector(i + 1);
                     }.bindenv(this));
