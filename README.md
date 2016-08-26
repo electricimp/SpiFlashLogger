@@ -1,25 +1,23 @@
 # SPIFlashLogger 2.1.0
 
-The SPIFlashLogger manages all or a portion of a SPI flash (either via imp003+'s built-in [hardware.spiflash](https://electricimp.com/docs/api/hardware/spiflash) or any functionally compatible driver such as the [SPIFlash library](https://github.com/electricimp/spiflash)).
+The SPIFlashLogger manages all or a portion of a SPI flash (either via imp003 or above built-in [hardware.spiflash](https://electricimp.com/docs/api/hardware/spiflash) or any functionally compatible driver such as the [SPIFlash library](https://github.com/electricimp/spiflash)).
 
 The SPIFlashLogger creates a circular log system, allowing you to log any serializable object (table, array, string, blob, integer, float, boolean and `null`) to the SPIFlash. If the log systems runs out of space in the SPIFlash, it begins overwriting the oldest logs.
 
-**To add this library to your project, add `#require "SPIFlashLogger.class.nut:2.1.0"` to the top of your device code.**
-
-You can view the library’s source code on [GitHub](https://github.com/electricimp/spiflashlogger/tree/v2.1.0).
+**To add this library to your project, add** `#require "SPIFlashLogger.class.nut:2.1.0"` **to the top of your device code.**
 
 ## Memory Efficiency
 
 The SPIFlash logger operates on 4KB sectors and 256-byte chunks. Objects needn't be aligned with chunks or sectors.  Some necessary overhead is added to the beginning of each sector, as well as each serialized object (assuming you are using the standard [Serializer library](https://electricimp.com/docs/libraries/utilities/serializer.1.0.0/)). The overhead includes:
 
-- 6 bytes of every sector are expended on sector-level metadata.
+- Six bytes of every sector are expended on sector-level metadata.
 - A four-byte marker is added to the beginning of each serialized object to aid in locating objects in the datastream.
 - The *Serializer* object also adds some overhead to each object (see the [Serializer's documentation](https://electricimp.com/docs/libraries/utilities/serializer.1.0.0/) for more information).
 - After a reboot the sector metadata allows the class to locate the next write position at the next chunk. This wastes some of the previous chunk, though this behaviour can be overridden using the *getPosition()* and *setPosition()* methods.
 
 ## Class Usage
 
-### Constructor: SPIFlashLogger(*[start, end, spiflash, serializer]*)
+### Constructor: SPIFlashLogger(*[start][, end][, spiflash][, serializer]*)
 
 The SPIFlashLogger’s constructor takes four parameters, all of which are optional:
 
@@ -87,17 +85,19 @@ function readAndSleep() {
 }
 ```
 
-### read(*onData[, onFinish, step, skip]*)
+### read(*onData[, onFinish][, step][, skip]*)
 
-The '.read()' method reads objects from the logger asynchronously, calling `onData` on each (subject to `step`, `skip`, and early termination within `onData`).  This allows for the asynchronous processing of each log object, such as sending data to the agent and waiting for an acknowledgement.
+The *read()* method reads objects from the logger asynchronously, calling the function *(see below)* passed into *onData* on each (subject to *step* and *skip*), and early termination within *onData*). This allows for the asynchronous processing of each log object, such as sending data to the agent and waiting for an acknowledgement.
 
-The optional *onFinish* callback will be called after the last object is located (with no parameters).
+The *onData* callback takes three parameters: the deserialized object, the SPIFlash address of the (start of) the object, and a *next* callback, which itself takes a single parameter: a boolean value (default is `true`).
 
-`step` is an optional parameter controlling the rate at which the scan steps through objects, for example, setting `step == 2` will cause `onData` to be called only for every second object found.  Negative values are allowed for scanning through objects backwards, for example, `step == -1` will scan through all objects, starting from the most recently written and stepping backwards.  Skip can be used to skip a number of objects at the start of reading.  For example, a `step` of 2 and `skip` of 0 (the default) will call `onData` for every second object *starting from the first*, whereas with `skip == 1` it will be every second object *starting from the second*, thus the two options provide full coverage with no overlap.  As a potential use case, one might log two versions of each message: a short, concise version, and a longer, more detailed version.  `step == 2` could then be used to pick up only the concise versions.
+Reading an object does not erase it, but the object can be erased in the body of *onData* by passing *address* to the *erase()* method. *onData* should call *next* when it is is ready to scan for the next item. Passing *false* into *next* aborts the scanning, skipping to *onFinish*.
 
-#### *onData(object, address, next)*
+The optional *onFinish* callback will be called after the last object is located. It takes no parameters.
 
-The on data callback is called for each requested object with three parameters: the deserialized object, the SPIFlash address of the (start of) the object, and a `next` callback.  Reading an object does not erase it, but the object can be erased in the body of `onData` by passing `address` to `erase()`.  `onData` should call next when it is is ready to scan for the next item.  Passing `false` to `next` aborts the scanning, skipping to `onFinish`
+*step* is an optional parameter controlling the rate at which the scan steps through objects, for example, setting `step == 2` will cause *onData* to be called only for every second object found. Negative values are allowed for scanning through objects backwards, for example, `step == -1` will scan through all objects, starting from the most recently written and stepping backwards.
+
+*skip* can be used to skip a number of objects at the start of reading. For example, a *step* of 2 and *skip* of 0 (the default) will call *onData* for every second object *starting from the first*, whereas with `skip == 1` it will be every second object *starting from the second*, thus the two options provide full coverage with no overlap. As a potential use case, one might log two versions of each message: a short, concise version, and a longer, more detailed version. `step == 2` could then be used to pick up only the concise versions.
 
 ```squirrel
 logger.read(
@@ -119,13 +119,13 @@ logger.read(
 );
 ```
 
-### erase(*[addr]*)
+### erase(*[address]*)
 
-This method erases an object at spiflash address `addr` by marking it erased.  If `addr` is not given, it will (properly) erase all allocated memory.
+This method erases an object at spiflash address *address* by marking it erased. If *address* is not given, it will (properly) erase all allocated memory.
 
-### eraseAll(*[force = false]*)
+### eraseAll(*[force]*)
 
-Erases the entire allocated SPIFlash area.
+Erases the entire allocated SPIFlash area. The optional *force* parameter is a Boolean value which defaults to `false`, a value which will cause the method to leave the SPIFlash area untouched. You **must** pass in `true` for the function to operate.
 
 ### getPosition()
 
