@@ -125,7 +125,7 @@ This method erases an object at spiflash address *address* by marking it erased.
 
 ### eraseAll(*[force]*)
 
-Erases the entire allocated SPIFlash area. The optional *force* parameter is a Boolean value which defaults to `false`, a value which will cause the method to leave the SPIFlash area untouched. You **must** pass in `true` for the function to operate.
+Erases the entire allocated SPIFlash area. The optional *force* parameter is a Boolean value which defaults to `false`, a value which will cause the method to erase only the sectors written to by this library. You **must** pass in `true` if you wish to erase the entire allocated SPIFlash area.
 
 ### getPosition()
 
