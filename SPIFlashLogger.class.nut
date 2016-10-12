@@ -276,6 +276,16 @@ class SPIFlashLogger {
         return readSector(0); // start reading sectors
     }
 
+    function first(defaultVal=null) {
+      local data = this.readSync(1);
+      return data == null ? defaultVal : data
+    }
+
+    function last(defaultVal=null) {
+      local data = this.readSync(-1);
+      return data == null ? defaultVal : data
+    }
+
     // Erases all dirty sectors, or an individual object
     function erase(addr = null) {
         if (addr == null) return eraseAll();
