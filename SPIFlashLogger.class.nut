@@ -224,6 +224,58 @@ class SPIFlashLogger {
         });
     }
 
+    function readSync(index = 1) {
+        assert(typeof index == "integer" && index != 0);
+
+        local skipped = -math.abs(index) + 1
+
+        local readSector;
+        readSector = function(i) {
+             if (i >= _sectors)  // Read requested index greater than our number of logs - return null;
+                return null;
+
+            // start reading sectors
+            // convert sector index `i`, ordered by recency, to physical `sector`, ordered by position on disk
+            local sector;
+            if (index > 0) {
+                sector = (_at_sec + i + 1) % _sectors;
+            } else {
+                sector = (_at_sec - i + _sectors) % _sectors;
+            }
+
+            local addrs_b = _getObjAddrs(sector);
+
+            if (addrs_b.len() == 0)
+                return readSector(i+1)  //TODO: Get rid of my good friend syncronous recursion?
+
+            if (index < 0) // negative index, go backwards
+                addrs_b.seek(-2, 'e');
+
+            local addr, spi_addr, obj, readObj, seekTo;
+
+            if (index < 0) seekTo = -2;
+            else seekTo = 2
+
+            while(++skipped != 1) {  //TODO: Get rid of my good friend the while loop?
+                if ((addrs_b.seek(seekTo, 'c') == -1 || addrs_b.eos() == 1)) {
+                     //  ^ Try to seek to the next available object
+                     // If we've exhausted all addresses found in this sector, move on to the next
+                     return readSector(i + 1) //TODO: Get rid of my good friend syncronous recursion?
+                 }
+            }
+
+            // Get the address (offset from the end of this sectors meta)
+            addr = addrs_b.readn('w');
+            // Calculate the raw spiflash address
+            spi_addr = _start + sector * SPIFLASHLOGGER_SECTOR_SIZE + SPIFLASHLOGGER_SECTOR_META_SIZE + addr;
+            // Read the object
+            return  _getObj(spi_addr);
+
+        }.bindenv(this)
+
+        return readSector(0); // start reading sectors
+    }
+
     // Erases all dirty sectors, or an individual object
     function erase(addr = null) {
         if (addr == null) return eraseAll();
