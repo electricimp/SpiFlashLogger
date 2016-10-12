@@ -1,10 +1,10 @@
-# SPIFlashLogger 2.1.0
+# SPIFlashLogger 2.2.0
 
 The SPIFlashLogger manages all or a portion of a SPI flash (either via imp003 or above built-in [hardware.spiflash](https://electricimp.com/docs/api/hardware/spiflash) or any functionally compatible driver such as the [SPIFlash library](https://github.com/electricimp/spiflash)).
 
 The SPIFlashLogger creates a circular log system, allowing you to log any serializable object (table, array, string, blob, integer, float, boolean and `null`) to the SPIFlash. If the log systems runs out of space in the SPIFlash, it begins overwriting the oldest logs.
 
-**To add this library to your project, add** `#require "SPIFlashLogger.class.nut:2.1.0"` **to the top of your device code.**
+**To add this library to your project, add** `#require "SPIFlashLogger.class.nut:2.2.0"` **to the top of your device code.**
 
 ## Memory Efficiency
 
@@ -31,7 +31,7 @@ The SPIFlashLogger’s constructor takes four parameters, all of which are optio
 ```squirrel
 // Initializing a SPIFlashLogger on an imp003+
 #require "Serializer.class.nut:1.0.0"
-#require "SPIFlashLogger.class.nut:2.1.0"
+#require "SPIFlashLogger.class.nut:2.2.0"
 
 // Initialize Logger to use the entire SPI Flash
 logger <- SPIFlashLogger();
@@ -41,7 +41,7 @@ logger <- SPIFlashLogger();
 // Initializing a SPIFlashLogger on an imp002
 #require "Serializer.class.nut:1.0.0"
 #require "SPIFlash.class.nut:1.0.1"
-#require "SPIFlashLogger.class.nut:2.1.0"
+#require "SPIFlashLogger.class.nut:2.2.0"
 
 // Setup SPI Bus
 spi <- hardware.spi257;
@@ -118,6 +118,58 @@ logger.read(
     }
 );
 ```
+
+### readSync(*index*)
+The *readSync()* method reads objects from the logger synchronously, returning a single log object for the *index* given. *readSync()* works similarly to *read()* - it will return the most recent object when `index == -1` and the oldest object when `index == 1`.  If the absolute value of *index* is greater than the number of logs, *readSync* will return null.
+
+```squirrel
+logger <- SPIFlashLogger(0, 4096*4);
+
+local microsAtStart = hardware.micros()
+for(local i=0; i<=1500; i++)
+  logger.write(i)
+
+server.log("Writing took " + (hardware.micros() - microsAtStart)/1000000.0 + " sec")
+
+microsAtStart = hardware.micros()
+server.log("first = " + logger.firstSync() + " in " + (hardware.micros()-microsAtStart) + " μs")
+
+microsAtStart = hardware.micros()
+server.log("last  = " + logger.lastSync()  + " in " + (hardware.micros()-microsAtStart) + " μs")
+
+microsAtStart = hardware.micros()
+server.log("Index 200 = " + logger.readSync(200)  + " in " + (hardware.micros()-microsAtStart) + " μs")
+
+microsAtStart = hardware.micros()
+server.log("Index 1178 = " + logger.readSync(1178)  + " in " + (hardware.micros()-microsAtStart) + " μs")
+
+//Logs:
+   // Writing took 1.97511 sec
+   // first = 323 in 12074 μs
+   // last  = 1500 in 10012 μs
+   // Index 200 = 522 in 16285 μs
+   // Index 1178 = 1500 in 66542 μs
+```
+
+### first(*[default = null]*)
+
+Synchronously returns the first object written to the log that hasn't been erased (i.e. the oldest entry on flash).  If there are no logs on the flash, returns *default*.
+
+```squirrel
+logger.write("This is the oldest")
+logger.write("This is the newest")
+assert(logger.first() == "This is the oldest");
+```
+
+### last(*[default = null]*)
+
+Synchronously returns the last object written to the log that hasn't been erased (i.e. the newest entry on flash). If there are no logs on the flash, returns *default*.
+
+```squirrel
+logger.eraseAll()
+assert(logger.last("Test Default value") == "Test Default value");
+logger.write("Now this is the oldest message on the flash")
+assert(logger.last(Test Default value") == "Now this is the oldest message on the flash");
 
 ### erase(*[address]*)
 
