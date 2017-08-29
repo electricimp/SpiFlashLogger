@@ -36,15 +36,15 @@ class Core extends ImpTestCase {
         return available;
     }
 
-    function assertDeepEqualWrap(expected, actual, message = null, compare = true) {
-        if (compare) {
-            local compareString = "Type: " + typeof actual + ". " +
-                                  "Expected: '" + expected + "'. " +
-                                  "Actual: '" + actual + "'.";
+    function assertDeepEqualWrap(expected, actual, message = null, annotate = true) {
+        if (annotate) {
+            local annotateString = "Type: " + typeof actual + ". " +
+                                   "Expected: '" + expected + "'. " +
+                                   "Actual: '" + actual + "'.";
             if (message == null) {
-                message = compareString;
+                message = annotateString;
             } else {
-                message = message + ". " + compareString;
+                message = message + ". " + annotateString;
             }
         }
         assertDeepEqual(expected, actual, message);
