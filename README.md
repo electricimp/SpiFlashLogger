@@ -1,10 +1,10 @@
-# SPIFlashLogger 2.1.0
+# SPIFlashLogger 3.0.0
 
 The SPIFlashLogger manages all or a portion of a SPI flash (either via imp003 or above built-in [hardware.spiflash](https://electricimp.com/docs/api/hardware/spiflash) or any functionally compatible driver such as the [SPIFlash library](https://github.com/electricimp/spiflash)).
 
 The SPIFlashLogger creates a circular log system, allowing you to log any serializable object (table, array, string, blob, integer, float, boolean and `null`) to the SPIFlash. If the log systems runs out of space in the SPIFlash, it begins overwriting the oldest logs.
 
-**To add this library to your project, add** `#require "SPIFlashLogger.class.nut:2.1.0"` **to the top of your device code.**
+**To add this library to your project, add** `#require "SPIFlashLogger.class.nut:3.0.0"` **to the top of your device code.**
 
 ## Memory Efficiency
 
@@ -31,7 +31,7 @@ The SPIFlashLogger’s constructor takes four parameters, all of which are optio
 ```squirrel
 // Initializing a SPIFlashLogger on an imp003+
 #require "Serializer.class.nut:1.0.0"
-#require "SPIFlashLogger.class.nut:2.1.0"
+#require "SPIFlashLogger.class.nut:3.0.0"
 
 // Initialize Logger to use the entire SPI Flash
 logger <- SPIFlashLogger();
@@ -41,7 +41,7 @@ logger <- SPIFlashLogger();
 // Initializing a SPIFlashLogger on an imp002
 #require "Serializer.class.nut:1.0.0"
 #require "SPIFlash.class.nut:1.0.1"
-#require "SPIFlashLogger.class.nut:2.1.0"
+#require "SPIFlashLogger.class.nut:3.0.0"
 
 // Setup SPI Bus
 spi <- hardware.spi257;
