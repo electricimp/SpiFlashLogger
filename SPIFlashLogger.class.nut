@@ -20,7 +20,7 @@ const SPIFLASHLOGGER_SECTOR_CLEAN = 0xFF;       // Flag for clean sectors
 
 class SPIFlashLogger {
 
-    static version = [2,2,0];
+    //static version = [3,0,0];
 
     _flash = null;      // hardware.spiflash or an object with an equivalent interface
     _serializer = null; // github.com/electricimp/serializer (or an object with an equivalent interface)
@@ -90,6 +90,8 @@ class SPIFlashLogger {
 
         _enable();
 
+        local startAddr = null
+
         // Write one sector at a time with the metadata attached
         local obj_pos = 0;
         local obj_remaining = obj_len;
@@ -106,6 +108,9 @@ class SPIFlashLogger {
                 _at_pos = SPIFLASHLOGGER_SECTOR_META_SIZE;
             }
 
+            if(startAddr == null)
+                startAddr = _start + _at_sec * SPIFLASHLOGGER_SECTOR_SIZE + _at_pos
+
             // Now write the data
             _write(obj, _at_sec, _at_pos, obj_pos, sec_remaining);
             _map[_at_sec] = SPIFLASHLOGGER_SECTOR_DIRTY;
@@ -121,6 +126,8 @@ class SPIFlashLogger {
         } while (obj_remaining > 0);
 
         _disable();
+
+        return startAddr;
     }
 
     function read(onData = null, onFinish = null, step = 1, skip = 0) {
@@ -348,7 +355,8 @@ class SPIFlashLogger {
         _disable();
 
         if (marker != SPIFLASHLOGGER_OBJECT_MARKER) {
-            throw "Error, marker not found at " + pos;
+            server.error("WARNING: marker not found at " + pos);
+            return SPIFLASHLOGGER_OBJECT_MARKER
         }
 
         local serialised = blob(SPIFLASHLOGGER_OBJECT_HDR_SIZE + len);
