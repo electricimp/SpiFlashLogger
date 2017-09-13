@@ -356,7 +356,8 @@ class SPIFlashLogger {
 
         if (marker != SPIFLASHLOGGER_OBJECT_MARKER) {
             server.error("WARNING: marker not found at " + pos);
-            return SPIFLASHLOGGER_OBJECT_MARKER
+			if (cb) cb(SPIFLASHLOGGER_OBJECT_MARKER);
+        	else return SPIFLASHLOGGER_OBJECT_MARKER;
         }
 
         local serialised = blob(SPIFLASHLOGGER_OBJECT_HDR_SIZE + len);
