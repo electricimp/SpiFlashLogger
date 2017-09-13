@@ -136,6 +136,7 @@ class SPIFlashLogger {
         // skipped tracks how many entries we have skipped, in order to implement skip
         local skipped = math.abs(step) - skip - 1;
         local count = 0;
+        local _at_sec = this._at_sec;   // shadow this locally so that when it gets mucked around by a simultaneous (okay during our async operation) .write, things stay happy and healthy in our read
 
         // function to read one sector, optionally continuing to the next one
         local readSector;
@@ -143,7 +144,8 @@ class SPIFlashLogger {
 
             if (i >= _sectors){
                 if (onFinish != null) {
-                    return onFinish()
+                    onFinish()
+                    onFinish = null // Prevent a race condition (//TODO: not quite sure what it is..., but I believe it has something to do with returning SPIFLASHLOGGER_OBJECT_MARKER) that calls onFinish multiple times
                 }
                 return;
             };
@@ -178,7 +180,7 @@ class SPIFlashLogger {
                 if (keepGoing == false) {
                     // Clean up and exit
                     addrs_b = obj = null;
-                    if (onFinish != null) onFinish();
+                    if (onFinish != null) { onFinish(); onFinish = null; }
                 } else if ((addrs_b.seek(seekTo, 'c') == -1 || addrs_b.eos() == 1)) {
                     //  ^ Try to seek to the next available object
                     // If we've exhausted all addresses found in this sector, move on to the next
@@ -354,8 +356,8 @@ class SPIFlashLogger {
         local len = _flash.read(pos + SPIFLASHLOGGER_OBJECT_MARKER_SIZE, 2).readn('w');
         _disable();
 
-        if (marker != SPIFLASHLOGGER_OBJECT_MARKER) {
-            server.error("WARNING: marker not found at " + pos);
+        if (marker != SPIFLASHLOGGER_OBJECT_MARKER) {   // This allows for simultaneous reading and erasing from the SPIFlashLogger
+            // server.error("WARNING: marker not found at " + pos);
 			if (cb) cb(SPIFLASHLOGGER_OBJECT_MARKER);
         	else return SPIFLASHLOGGER_OBJECT_MARKER;
         }
