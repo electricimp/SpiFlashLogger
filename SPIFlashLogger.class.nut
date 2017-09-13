@@ -20,7 +20,7 @@ const SPIFLASHLOGGER_SECTOR_CLEAN = 0xFF;       // Flag for clean sectors
 
 class SPIFlashLogger {
 
-    static version = [2,1,0];
+    //static version = [3,0,0];
 
     _flash = null;      // hardware.spiflash or an object with an equivalent interface
     _serializer = null; // github.com/electricimp/serializer (or an object with an equivalent interface)
@@ -90,6 +90,8 @@ class SPIFlashLogger {
 
         _enable();
 
+        local startAddr = null
+
         // Write one sector at a time with the metadata attached
         local obj_pos = 0;
         local obj_remaining = obj_len;
@@ -106,6 +108,9 @@ class SPIFlashLogger {
                 _at_pos = SPIFLASHLOGGER_SECTOR_META_SIZE;
             }
 
+            if(startAddr == null)
+                startAddr = _start + _at_sec * SPIFLASHLOGGER_SECTOR_SIZE + _at_pos
+
             // Now write the data
             _write(obj, _at_sec, _at_pos, obj_pos, sec_remaining);
             _map[_at_sec] = SPIFLASHLOGGER_SECTOR_DIRTY;
@@ -121,6 +126,8 @@ class SPIFlashLogger {
         } while (obj_remaining > 0);
 
         _disable();
+
+        return startAddr;
     }
 
     function read(onData = null, onFinish = null, step = 1, skip = 0) {
@@ -129,6 +136,7 @@ class SPIFlashLogger {
         // skipped tracks how many entries we have skipped, in order to implement skip
         local skipped = math.abs(step) - skip - 1;
         local count = 0;
+        local _at_sec = this._at_sec;   // shadow this locally so that when it gets mucked around by a simultaneous (okay during our async operation) .write, things stay happy and healthy in our read
 
         // function to read one sector, optionally continuing to the next one
         local readSector;
@@ -136,7 +144,8 @@ class SPIFlashLogger {
 
             if (i >= _sectors){
                 if (onFinish != null) {
-                    return onFinish()
+                    onFinish()
+                    onFinish = null // Prevent a race condition (//TODO: not quite sure what it is..., but I believe it has something to do with returning SPIFLASHLOGGER_OBJECT_MARKER) that calls onFinish multiple times
                 }
                 return;
             };
@@ -171,7 +180,7 @@ class SPIFlashLogger {
                 if (keepGoing == false) {
                     // Clean up and exit
                     addrs_b = obj = null;
-                    if (onFinish != null) onFinish();
+                    if (onFinish != null) { onFinish(); onFinish = null; }
                 } else if ((addrs_b.seek(seekTo, 'c') == -1 || addrs_b.eos() == 1)) {
                     //  ^ Try to seek to the next available object
                     // If we've exhausted all addresses found in this sector, move on to the next
@@ -222,6 +231,68 @@ class SPIFlashLogger {
         imp.wakeup(0, function() {
             readSector(0); // start reading sectors
         });
+    }
+
+    function readSync(index = 1) {
+        assert(typeof index == "integer" && index != 0);
+
+        local skipped = -math.abs(index) + 1
+
+        local readSector;
+        readSector = function(i) {
+             if (i >= _sectors)  // Read requested index greater than our number of logs - return null;
+                return null;
+
+            // start reading sectors
+            // convert sector index `i`, ordered by recency, to physical `sector`, ordered by position on disk
+            local sector;
+            if (index > 0) {
+                sector = (_at_sec + i + 1) % _sectors;
+            } else {
+                sector = (_at_sec - i + _sectors) % _sectors;
+            }
+
+            local addrs_b = _getObjAddrs(sector);
+
+            if (addrs_b.len() == 0)
+                return readSector(i+1)  //TODO: Get rid of my good friend syncronous recursion?
+
+            if (index < 0) // negative index, go backwards
+                addrs_b.seek(-2, 'e');
+
+            local addr, spi_addr, obj, readObj, seekTo;
+
+            if (index < 0) seekTo = -2;
+            else seekTo = 2
+
+            while(++skipped != 1) {  //TODO: Get rid of my good friend the while loop?
+                if ((addrs_b.seek(seekTo, 'c') == -1 || addrs_b.eos() == 1)) {
+                     //  ^ Try to seek to the next available object
+                     // If we've exhausted all addresses found in this sector, move on to the next
+                     return readSector(i + 1) //TODO: Get rid of my good friend syncronous recursion?
+                 }
+            }
+
+            // Get the address (offset from the end of this sectors meta)
+            addr = addrs_b.readn('w');
+            // Calculate the raw spiflash address
+            spi_addr = _start + sector * SPIFLASHLOGGER_SECTOR_SIZE + SPIFLASHLOGGER_SECTOR_META_SIZE + addr;
+            // Read the object
+            return  _getObj(spi_addr);
+
+        }.bindenv(this)
+
+        return readSector(0); // start reading sectors
+    }
+
+    function first(defaultVal=null) {
+      local data = this.readSync(1);
+      return data == null ? defaultVal : data
+    }
+
+    function last(defaultVal=null) {
+      local data = this.readSync(-1);
+      return data == null ? defaultVal : data
     }
 
     // Erases all dirty sectors, or an individual object
@@ -285,8 +356,10 @@ class SPIFlashLogger {
         local len = _flash.read(pos + SPIFLASHLOGGER_OBJECT_MARKER_SIZE, 2).readn('w');
         _disable();
 
-        if (marker != SPIFLASHLOGGER_OBJECT_MARKER) {
-            throw "Error, marker not found at " + pos;
+        if (marker != SPIFLASHLOGGER_OBJECT_MARKER) {   // This allows for simultaneous reading and erasing from the SPIFlashLogger
+            // server.error("WARNING: marker not found at " + pos);
+			if (cb) cb(SPIFLASHLOGGER_OBJECT_MARKER);
+        	else return SPIFLASHLOGGER_OBJECT_MARKER;
         }
 
         local serialised = blob(SPIFLASHLOGGER_OBJECT_HDR_SIZE + len);
