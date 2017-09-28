@@ -42,7 +42,7 @@ class ManagePositionTestCase extends Core {
             logger.erase();
             logger.setPosition(0);
             // fill logger with values 1 2 3 and then compare length and position
-            local length = SPIFLASHLOGGER_SECTOR_META_SIZE;
+            local length = SPIFLASHLOGGER_SECTOR_METADATA_SIZE;
             for (local i = 0; i < 3; i++) {
                 logger.write(i);
                 length += Serializer.sizeof(i, SPIFLASHLOGGER_OBJECT_MARKER);

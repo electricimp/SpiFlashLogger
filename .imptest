@@ -4,7 +4,7 @@
         "30000c2a690bdb9f" /* 30000c2a690bdcca */
     ],
     "agentFile": false,
-    "deviceFile": "SPIFlashLogger.class.nut",
+    "deviceFile": "SPIFlashLogger.device.lib.nut",
     "stopOnFailure": false,
     "timeout": 60,
     "tests": [

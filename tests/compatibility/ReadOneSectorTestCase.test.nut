@@ -39,7 +39,7 @@ class ReadOneSectorTestCase extends Core {
                     resolve();
                     return;
                 }
-                local start = math.rand() % 120;
+                local start = math.rand() % 15;
                 local end = start + 1;
                 start *= SPIFLASHLOGGER_SECTOR_SIZE;
                 end   *= SPIFLASHLOGGER_SECTOR_SIZE;
