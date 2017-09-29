@@ -125,6 +125,7 @@ class SPIFlashLogger {
         do {
             local written = _sectorsMap[_at_sec].write(obj, obj_pos, obj_remaining);
             obj_remaining = obj_remaining - written;
+            obj_pos += written;
             // Object (or partial object) should allocate all memory on the flash sector
             // otherwise we will have gap in object writing.
             if (obj_remaining != 0 && _sectorsMap[_at_sec].getFreeSpace() > 0)
@@ -193,7 +194,15 @@ class SPIFlashLogger {
     }
 
     function readSync(index) {
-        return _getObjectIterator.getNextObject(index);
+        //  index == 0 corresponding write postion
+        if (index == 0)
+            return null;
+        local objIter = _getObjectIterator(index);
+        // object iterator could be null on erased logger
+        if (objIter == null)
+            return null;
+        local obj = objIter.getNextObject(index, math.abs(index) - 1);
+        return (obj == null ? null : obj.getPayload());
     }
 
     function _getObjectIterator(index) {
@@ -206,12 +215,14 @@ class SPIFlashLogger {
 
         local sec = _at_sec;
         local counter = 0;
+        // Looking for a first sector
         do {
             sec = (sec + 1) % _sectors;
             ++counter;
         } while (!_sectorsMap[sec].isStoppedWriting() &&
             !_sectorsMap[sec].isStartWriting() &&
             counter <= _sectors);
+        // Failed to find first sector
         if (!_sectorsMap[sec].isStoppedWriting() &&
             !_sectorsMap[sec].isStartWriting())
             return null;
@@ -477,11 +488,12 @@ class SPIFlashLogger.LoggerSector {
     function write(object, object_pos = 0, len = null) {
         if (len == null)
             len = object.len();
-        if (len > getFreeSpace())
-            len = getFreeSpace();
 
         if (_eraseBeforeWrite)
             erase();
+
+        if (len > getFreeSpace())
+            len = getFreeSpace();
 
         local meta = _getUpdatedMetadataBlob(len, object_pos == 0);
 
@@ -567,7 +579,7 @@ class SPIFlashLogger.LoggerSector {
     //
     // indicates if sector has start code
     function hasStartCode() {
-        return ~this._status & SECTOR_HAS_START_CODE;
+        return (~this._status & SECTOR_HAS_START_CODE) > 0;
     }
 
     function isStartWriting() {
@@ -630,6 +642,8 @@ class SPIFlashLogger.LoggerSerializedObject {
     _payload = null;
     _len = 0;
 
+
+_debug = false;
     constructor(addr, logger, flash) {
         _logger = logger;
         _flash = flash;
@@ -708,7 +722,7 @@ class SPIFlashLogger.LoggerSerializedObject {
         try {
             _payload = _logger._serializer.deserialize(serialised, SPIFLASHLOGGER_OBJECT_MARKER);
         } catch (e) {
-            //server.error(format("Exception reading logger object address 0x%04x with length %d: %s", requested_pos, serialised.len(), e));
+            //server.error(format("Exception reading logger object address 0x%04x with length %d: %s", _addr, serialised.len(), e));
             _payload = null;
         }
         return _payload;
@@ -756,10 +770,8 @@ class SPIFlashLogger.LoggerObjectIterator {
     _sector_available_data = 0;
 
     function getNextObject(step, skip = 0) {
-
         local is_init = _sector_start_codes == null;
         local steps_need = is_init ? skip + 1 : math.abs(step);
-
         if (_sector_available_data < steps_need || _sector_available_data == 0) {
 
             do {
@@ -771,24 +783,23 @@ class SPIFlashLogger.LoggerObjectIterator {
                 // If there is no more start codes then return
                 if (next < 0)
                     return null;
-
                 _sector = next;
-
                 // cache start codes on the next sector
                 _sector_start_codes = _logger._sectorsMap[_sector].getObjectAddresses();
 
                 // Something goes wrong, null happens on error only
                 if (_sector_start_codes == null)
                     return null;
+
                 // check if cache sector has enough data for the next step
                 _sector_available_data = _sector_start_codes.len() / 2;
                 _start_code_pos = step > 0 ? 0 : _sector_available_data;
             } while (_sector_available_data < steps_need);
         }
-
         // No more data for the next step
-        if (_sector_available_data < steps_need)
+        if (_sector_available_data < steps_need) {
             return null;
+        }
 
         // increase or decrease the current position
         _start_code_pos += (step > 0) ? steps_need - 1 : -steps_need;
@@ -816,9 +827,11 @@ class SPIFlashLogger.LoggerObjectIterator {
 
         // Check if it is laster sector
         do {
-            if (counter > 0 && next_sector >= 0 && _isLastSector(next_sector, forward))
+            if (counter > 1 && next_sector >= 0 && _isLastSector(next_sector, forward))
                 return -1;
+
             next_sector = (current + _logger._sectors + (forward ? counter : -counter)) % _logger._sectors;
+
             counter++;
             // we are not expecting to find erased sector
             // except first iteration
@@ -826,6 +839,7 @@ class SPIFlashLogger.LoggerObjectIterator {
                 return -1;
 
         } while (!_logger._sectorsMap[next_sector].hasStartCode() && counter < _logger._sectors - 1)
+
         if (_logger._sectorsMap[next_sector].hasStartCode())
             return next_sector;
         return -1;
