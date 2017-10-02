@@ -34,9 +34,20 @@ const SPIFLASHLOGGER_OBJECT_MARKER_SIZE = 4;
 const SPIFLASHLOGGER_OBJECT_HDR_SIZE = 7; // SPIFLASHLOGGER_OBJECT_MARKER (4 bytes) + size (2 bytes) + crc (1 byte)
 const SPIFLASHLOGGER_OBJECT_MIN_SIZE = 6; // SPIFLASHLOGGER_OBJECT_MARKER (4 bytes) + size (2 bytes)
 
-const SPIFLASHLOGGER_SECTOR_DIRTY = 0x00; // Flag for dirty sectors
-const SPIFLASHLOGGER_SECTOR_CLEAN = 0xFF; // Flag for clean sectors
-
+// Default status of sector is free
+// which is equal to the 0xFFFFFF
+const SECTOR_STATUS_FREE = 0;
+// Indicates that we can read metadata from that sector
+const SECTOR_HAS_METADATA = 1;
+// Indicates that sector has some written data
+const SECTOR_WRITE_START = 0x02;
+// Indicates that sector was closed on writing
+const SECTOR_WRITE_DONE = 0x04;
+// Indicates that sector has at least one start code
+const SECTOR_HAS_START_CODE = 0x08;
+// indicates that start code could be invalid
+// because object was erased
+const SECTOR_HAS_REMOVED_OBJECT = 0x08;
 
 class SPIFlashLogger {
 
@@ -416,21 +427,6 @@ class SPIFlashLogger.LoggerSector {
     // indicates if we need to erase sector before write
     _eraseBeforeWrite = false;
 
-    // Default status of sector is free
-    // which is equal to the 0xFFFFFF
-    static SECTOR_STATUS_FREE = 0;
-    // Indicates that we can read metadata from that sector
-    static SECTOR_HAS_METADATA = 1;
-    // Indicates that sector has some written data
-    static SECTOR_WRITE_START = 1 << 1;
-    // Indicates that sector was closed on writing
-    static SECTOR_WRITE_DONE = 1 << 2;
-    // Indicates that sector has at least one start code
-    static SECTOR_HAS_START_CODE = 1 << 3;
-    // indicates that start code could be invalid
-    // because object was erased
-    static SECTOR_HAS_REMOVED_OBJECT = 1 << 4;
-
     // header bytes with status of current sector
     _status = 0xFFFF;
     // chunk map indicates if all chunks are busy
@@ -712,13 +708,9 @@ _debug = false;
 
             // Read it
             local read;
-            if (leftInObject < leftInSector) {
-                read = _flash.read(pos, leftInObject);
-                assert(read.len() == leftInObject);
-            } else {
-                read = _flash.read(pos, leftInSector);
-                assert(read.len() == leftInSector);
-            }
+            local left = leftInObject < leftInSector ? leftInObject : leftInSector;
+            read = _flash.read(pos, left);
+            assert(read.len() == left);
 
             serialised.writeblob(read);
 
@@ -740,7 +732,6 @@ _debug = false;
             _payload = _logger._serializer.deserialize(serialised, SPIFLASHLOGGER_OBJECT_MARKER);
         } catch (e) {
             //server.error(format("Exception reading logger object address 0x%04x with length %d: %s", _addr, serialised.len(), e));
-            _payload = null;
         }
         return _payload;
     }
