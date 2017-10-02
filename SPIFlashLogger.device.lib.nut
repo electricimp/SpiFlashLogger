@@ -132,9 +132,10 @@ class SPIFlashLogger {
                 throw "Failed to write data on the flash.";
 
             if (_sectorsMap[_at_sec].getFreeSpace() <= SPIFLASHLOGGER_OBJECT_MIN_SIZE) {
+                _sectorsMap[_at_sec].closeForWriting();
                 _at_sec = (_at_sec + 1) % _sectors;
                 // erase and mark as start next sector
-                _sectorsMap[_at_sec]._prepareForWrite();
+                _sectorsMap[_at_sec].prepareForWrite();
                 _at_pos = _sectorsMap[_at_sec].getWritePosition();
             } else {
                 _at_pos += written;
@@ -479,7 +480,23 @@ class SPIFlashLogger.LoggerSector {
         return SPIFLASHLOGGER_SECTOR_SIZE - _pos_write;
     }
 
-    function _prepareForWrite() {
+    function closeForWriting() {
+        // Prepare the new metadata
+        local meta = blob(SPIFLASHLOGGER_SECTOR_METADATA_SIZE);
+        // update status
+        _status = _status & ~SECTOR_WRITE_DONE;
+        // Sector status information
+        meta.writen(this._status, 'b');
+        // Chunk payload information
+        meta.writen(this._chunkMap, 'w');
+
+        // Update page status before next data writing
+        _logger._enable();
+        _flash.write(_start, meta, SPIFLASH_POSTVERIFY);
+        _logger._disable();
+    }
+
+    function prepareForWrite() {
         // clean and re-init sector
         if (!this.isFree())
             erase();
@@ -525,7 +542,7 @@ class SPIFlashLogger.LoggerSector {
             this._chunkMap = this._chunkMap & ~mod;
         }
         // object will take all free space on this flash
-        if (length >= getFreeSpace() - SPIFLASHLOGGER_OBJECT_MIN_SIZE) {
+        if (length > getFreeSpace()) {
             _status = _status & ~SECTOR_WRITE_DONE;
         }
 
@@ -773,13 +790,11 @@ class SPIFlashLogger.LoggerObjectIterator {
         local is_init = _sector_start_codes == null;
         local steps_need = is_init ? skip + 1 : math.abs(step);
         if (_sector_available_data < steps_need || _sector_available_data == 0) {
-
             do {
                 // skip all start codes in this sector
                 steps_need -= _sector_available_data;
                 // find next sector which has start code
                 local next = _getNextSectorWithStartCode(_sector, _sector_start_codes == null, step > 0);
-
                 // If there is no more start codes then return
                 if (next < 0)
                     return null;
@@ -822,6 +837,14 @@ class SPIFlashLogger.LoggerObjectIterator {
         if (!is_first_search && _logger._sectors <= 1)
             return -1;
 
+        // Check if we have reached writing sector
+        // User could write data during reading
+        // therefore we need to check it on each search of the next sector
+        // Note: if user overwrite reading sector the we shold get deserialization
+        //       error and read iterations should be stopped
+        if (forward && !is_first_search && current == _logger._at_sec)
+            return -1;
+
         local counter = is_first_search ? 0 : 1;
         local next_sector = is_first_search ? -1 : current;
 
@@ -838,7 +861,11 @@ class SPIFlashLogger.LoggerObjectIterator {
             if (!is_first_search && _logger._sectorsMap[next_sector].isFree())
                 return -1;
 
-        } while (!_logger._sectorsMap[next_sector].hasStartCode() && counter < _logger._sectors - 1)
+            // Prevent reading data from the writing sector
+            // except first iteration use-case
+            if (!forward && !is_first_search && next_sector == _logger._at_sec)
+                return -1;
+        } while (!_logger._sectorsMap[next_sector].hasStartCode() && counter < _logger._sectors)
 
         if (_logger._sectorsMap[next_sector].hasStartCode())
             return next_sector;

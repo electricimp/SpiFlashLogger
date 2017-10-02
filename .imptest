@@ -1,12 +1,11 @@
 {
-    "apiKey": "c3ed2b360c177e1898d4ec28311fd9e8",
-    "modelId": "MPvz_owofPIj" /* TestModel2 */,
+    "modelId": "-Ah71ECh-rlK" /* SpiFlashLogger */,
     "devices": [
-        "5000a408eab997b6" /* 5000a408eab997b6 */
+        "30000c2a690bdb9f" /* 30000c2a690bdcca */
     ],
     "agentFile": false,
     "deviceFile": "SPIFlashLogger.device.lib.nut",
-    "stopOnFailure": true,
+    "stopOnFailure": false,
     "timeout": 60,
     "tests": [
         "*.test.nut",

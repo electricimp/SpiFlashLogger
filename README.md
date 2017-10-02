@@ -10,7 +10,7 @@ The SPIFlashLogger creates a circular log system, allowing you to log any serial
 
 The SPIFlash logger operates on 4KB sectors and 256-byte chunks. Objects needn't be aligned with chunks or sectors.  Some necessary overhead is added to the beginning of each sector, as well as each serialized object (assuming you are using the standard [Serializer library](https://electricimp.com/docs/libraries/utilities/serializer.1.0.0/)). The overhead includes:
 
-- Six bytes of every sector are expended on sector-level metadata.
+- Three bytes of every sector are expended on sector-level metadata.
 - A four-byte marker is added to the beginning of each serialized object to aid in locating objects in the datastream.
 - The *Serializer* object also adds some overhead to each object (see the [Serializer's documentation](https://electricimp.com/docs/libraries/utilities/serializer.1.0.0/) for more information).
 - After a reboot the sector metadata allows the class to locate the next write position at the next chunk. This wastes some of the previous chunk, though this behaviour can be overridden using the *getPosition()* and *setPosition()* methods.
@@ -118,6 +118,59 @@ logger.read(
     }
 );
 ```
+### readSync(*index*)
+ The *readSync()* method reads objects from the logger synchronously, returning a single log object for the *index* given. *readSync()* works similarly to *read()* - it will return the most recent object when `index == -1` and the oldest object when `index == 1`.  If the absolute value of *index* is greater than the number of logs, *readSync* will return null.
+ Throw an exception if `index == 0`.
+
+ ```squirrel
+ logger <- SPIFlashLogger(0, 4096*4);
+
+ local microsAtStart = hardware.micros()
+ for(local i=0; i<=1500; i++)
+   logger.write(i)
+
+ server.log("Writing took " + (hardware.micros() - microsAtStart)/1000000.0 + " sec")
+
+ microsAtStart = hardware.micros()
+ server.log("first = " + logger.first() + " in " + (hardware.micros()-microsAtStart) + " μs")
+
+ microsAtStart = hardware.micros()
+ server.log("last  = " + logger.last()  + " in " + (hardware.micros()-microsAtStart) + " μs")
+
+ microsAtStart = hardware.micros()
+ server.log("Index 200 = " + logger.readSync(200)  + " in " + (hardware.micros()-microsAtStart) + " μs")
+
+ microsAtStart = hardware.micros()
+ server.log("Index 1178 = " + logger.readSync(1178)  + " in " + (hardware.micros()-microsAtStart) + " μs")
+
+ //Logs:
+    // Writing took 1.97511 sec
+    // first = 323 in 12074 μs
+    // last  = 1500 in 10012 μs
+    // Index 200 = 522 in 16285 μs
+    // Index 1178 = 1500 in 66542 μs
+ ```
+
+ ### first(*[default = null]*)
+
+ Synchronously returns the first object written to the log that hasn't been erased (i.e. the oldest entry on flash).  If there are no logs on the flash, returns *default*.
+
+ ```squirrel
+ logger.write("This is the oldest")
+ logger.write("This is the newest")
+ assert(logger.first() == "This is the oldest");
+ ```
+
+ ### last(*[default = null]*)
+
+ Synchronously returns the last object written to the log that hasn't been erased (i.e. the newest entry on flash). If there are no logs on the flash, returns *default*.
+
+ ```squirrel
+ logger.eraseAll()
+ assert(logger.last("Test Default value") == "Test Default value");
+ logger.write("Now this is the oldest message on the flash")
+ assert(logger.last(Test Default value") == "Now this is the oldest message on the flash");
+ ```
 
 ### erase(*[address]*)
 
