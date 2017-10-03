@@ -413,6 +413,11 @@ class SPIFlashLogger {
     }
 }
 
+// Logger sector class
+// This class is responsible for the logger sector's metadata
+// reading and update;
+// This class write all sector write operations
+// and update sectors metadata accordingly
 class SPIFlashLogger.LoggerSector {
     // position for reading
     _pos_read = 0;
@@ -423,6 +428,7 @@ class SPIFlashLogger.LoggerSector {
     _end = 0;
     // spi flash object
     _flash = null;
+    // logger object
     _logger = null;
     // indicates if we need to erase sector before write
     _eraseBeforeWrite = false;
@@ -448,7 +454,9 @@ class SPIFlashLogger.LoggerSector {
         _pos_write = SPIFLASHLOGGER_SECTOR_METADATA_SIZE;
     }
 
-    // read current status of flash's sector
+    // Initialize logger segment
+    // Read current metadata
+    // Recover write position
     function init() {
         _logger._enable();
         local meta = _flash.read(_start, SPIFLASHLOGGER_SECTOR_METADATA_SIZE);
@@ -468,6 +476,9 @@ class SPIFlashLogger.LoggerSector {
         }
     }
 
+    //
+    // Return free space in sector
+    //
     function getFreeSpace() {
         // there is no free space if sector
         // was closed for writing
@@ -476,6 +487,9 @@ class SPIFlashLogger.LoggerSector {
         return SPIFLASHLOGGER_SECTOR_SIZE - _pos_write;
     }
 
+    // Close sector for writing
+    // It is necessary to erase sector to make it writeable
+    // Write SECTOR_WRITE_DONE flag into the sector metadata
     function closeForWriting() {
         // Prepare the new metadata
         local meta = blob(SPIFLASHLOGGER_SECTOR_METADATA_SIZE);
@@ -492,12 +506,22 @@ class SPIFlashLogger.LoggerSector {
         _logger._disable();
     }
 
+    //
+    // prepare sector for payload writing
+    // Erase sector if it is dirty and do nothing if sector is free
     function prepareForWrite() {
         // clean and re-init sector
         if (!this.isFree())
             erase();
     }
 
+    // Write the object blob part into the sector
+    // Parameters:
+    //      object       - a blob object
+    //      object_pos   - object write start position
+    //      len          - payload length to write
+    // Return:
+    //      number - number of written data
     function write(object, object_pos = 0, len = null) {
         if (len == null)
             len = object.len();
@@ -526,6 +550,12 @@ class SPIFlashLogger.LoggerSector {
         return len;
     }
 
+    // Update metadata and write them to the blob
+    // Parameters:
+    //      length       - writing payload length. Uses to mark dirty chunks
+    //      hasStartCode - indicates if writing payload has start code
+    // Return:
+    //      blob - metadata blob
     function _getUpdatedMetadataBlob(length, hasStartCode) {
         // Prepare the new metadata
         local meta = blob(SPIFLASHLOGGER_SECTOR_METADATA_SIZE);
@@ -591,22 +621,42 @@ class SPIFlashLogger.LoggerSector {
 
     //
     // indicates if sector has start code
+    //
     function hasStartCode() {
         return (~this._status & SECTOR_HAS_START_CODE) > 0;
     }
 
+    //
+    // indicates if sector has written data
+    //
     function isStartWriting() {
         return ~this._status & SECTOR_WRITE_START;
     }
 
+    //
+    // indicates if sector was closed for write
+    //
     function isStoppedWriting() {
         return ~this._status & SECTOR_WRITE_DONE;
     }
 
+    //
+    // indicates if sector is free
+    //
+    function isFree() {
+        return this._status == 0xFF;
+    }
+
+    //
+    // return current write position in sector
+    //
     function getWritePosition() {
         return _pos_write;
     }
 
+    //
+    // Return the nearest free chunk address
+    //
     function getFreeChunkAddress() {
         local i = 0;
         do {
@@ -618,10 +668,9 @@ class SPIFlashLogger.LoggerSector {
         return SPIFLASHLOGGER_SECTOR_SIZE;
     }
 
-    function isFree() {
-        return this._status == 0xFF;
-    }
-
+    //
+    // Erase sector and update metadata status
+    //
     function erase() {
         // Erase sector
         local sec = (this._start - _logger._start) / SPIFLASHLOGGER_SECTOR_SIZE;
@@ -636,6 +685,12 @@ class SPIFlashLogger.LoggerSector {
         _eraseBeforeWrite = false;
     }
 
+    //
+    // Set current write position
+    // Parameters:
+    //     pos - write position
+    // Note: if position point to the dirty area then sector will be erased
+    //       on write method call
     function setPosition(pos) {
         if ((math.abs(pos - _pos_write) > SPIFLASHLOGGER_CHUNK_SIZE) ||
             (pos <= SPIFLASHLOGGER_SECTOR_METADATA_SIZE && !this.isFree() ||
@@ -647,6 +702,8 @@ class SPIFlashLogger.LoggerSector {
     }
 };
 
+// This calss uses to read the serialized object from the flash
+// and de-serialize it.
 class SPIFlashLogger.LoggerSerializedObject {
     _flash = null;
     _logger = null;
@@ -655,8 +712,11 @@ class SPIFlashLogger.LoggerSerializedObject {
     _payload = null;
     _len = 0;
 
-
-_debug = false;
+    // constructor
+    // Parameters:
+    //      addr - object address
+    //      logger - the SPIFlashLogger object
+    //      flash - the spiflash object
     constructor(addr, logger, flash) {
         _logger = logger;
         _flash = flash;
@@ -669,6 +729,8 @@ _debug = false;
         init(addr);
     }
 
+    // internal method to initialize object:
+    // check start code and read object size
     function init(pos) {
         local requested_pos = pos;
         _logger._enable();
@@ -680,14 +742,22 @@ _debug = false;
         _isValid = (marker == SPIFLASHLOGGER_OBJECT_MARKER && len > 0 && len < _logger._size);
     }
 
+    //
+    // Indicates if  object has valid length and startcode
     function isValid() {
         return _isValid;
     }
 
+    //
+    // Return object address
+    //
     function getAddress() {
         return _addr;
     }
 
+    //
+    // De-serialize object data and return payload
+    //
     function getPayload() {
         if (!_isValid)
             return null;
@@ -736,6 +806,9 @@ _debug = false;
         return _payload;
     }
 
+    //
+    // Erase object startcode
+    // and make object invisible for the next iterations
     function erase() {
         _logger._enable();
         local clear = blob(SPIFLASHLOGGER_OBJECT_MARKER_SIZE);
@@ -751,6 +824,8 @@ _debug = false;
     }
 }
 
+// This class was intoduced to simplify iteration
+// through the written logs
 class SPIFlashLogger.LoggerObjectIterator {
     _addr = null; // current start address
     _sector = -1; // working sector
@@ -760,6 +835,18 @@ class SPIFlashLogger.LoggerObjectIterator {
     _logger = null;
     _flash = null;
 
+    // blob with startcodes
+    _sector_start_codes = null;
+    // the last start code position
+    _start_code_pos = null;
+    // the number of avaiable startcodes in cache
+    _sector_available_data = 0;
+
+    // constructor
+    // Parameters:
+    //     logger - SPIFlashLogger object instance
+    //     flash  - an `hardware.spiflash` object
+    //     addr   - address to start logs iteration
     constructor(logger, flash, addr = null) {
         _logger = logger;
         _flash = flash;
@@ -772,11 +859,12 @@ class SPIFlashLogger.LoggerObjectIterator {
             _pos = SPIFLASHLOGGER_SECTOR_METADATA_SIZE;
     }
 
-    // cached statuses of each sector
-    _sector_start_codes = null;
-    _start_code_pos = null;
-    _sector_available_data = 0;
-
+    // Iterate to the next object
+    // Parameters:
+    //     step - step of iteration
+    //     skip - the number of items to skip
+    // Return:
+    //     SPIFlashLogger.LoggerSerializedObject - object or null
     function getNextObject(step, skip = 0) {
         local is_init = _sector_start_codes == null;
         local steps_need = is_init ? skip + 1 : math.abs(step);
@@ -818,11 +906,13 @@ class SPIFlashLogger.LoggerObjectIterator {
         return SPIFlashLogger.LoggerSerializedObject(spi_addr, _logger, _flash);
     }
 
+    // Helper method to check if we reached the last sector
     function _isLastSector(current, forward) {
         local is_last_sector = current == _logger._at_sec;
         return is_last_sector;
     }
 
+    // Helper method to get next sector which contain start code
     function _getNextSectorWithStartCode(current, is_first_search, forward) {
         // work-around for a one-sector logger
         if (!is_first_search && _logger._sectors <= 1)
