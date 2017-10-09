@@ -32,7 +32,7 @@ The SPIFlashLogger’s constructor takes four parameters, all of which are optio
 | *start* | 0 | The first byte in the SPIFlash to use (must be the first byte of a sector). |
 | *end*  | *spiflash.size()*   | The last byte in the SPIFlash to use (must be the last byte of a sector). |
 | *spiflash*  | **hardware.spiflash** | hardware.spiflash, or an object with an equivalent interface such as the [SPIFlash](https://electricimp.com/docs/libraries/hardware/spiflash) library. |
-| *serializer* | Serializer class | The static [Serializer library](https://electricimp.com/docs/libraries/utilities/serializer.1.0.0/), or an object with an equivalent interface. |
+| *serializer* | Serializer class | The static [Serializer library](https://electricimp.com/docs/libraries/utilities/serializer), or an object with an equivalent interface. |
 
 ```squirrel
 // Initializing a SPIFlashLogger on an imp003+
