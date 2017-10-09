@@ -1,18 +1,24 @@
 # SPIFlashLogger 3.0.0
 
-The SPIFlashLogger manages all or a portion of a SPI flash (either via imp003 or above built-in [hardware.spiflash](https://electricimp.com/docs/api/hardware/spiflash) or any functionally compatible driver such as the [SPIFlash library](https://github.com/electricimp/spiflash)).
+This is a library for IMP device.
 
 The SPIFlashLogger creates a circular log system, allowing you to log any serializable object (table, array, string, blob, integer, float, boolean and `null`) to the SPIFlash. If the log systems runs out of space in the SPIFlash, it begins overwriting the oldest logs.
 
-**To add this library to your project, add** `#require "SPIFlashLogger.class.nut:3.0.0"` **to the top of your device code.**
+The SPIFlashLogger works either via the [hardware.spiflash](https://electricimp.com/docs/api/hardware/spiflash) (built-in the imp003 or above) or any functionally compatible driver such as the [SPIFlash library](https://electricimp.com/docs/libraries/hardware/spiflash) (available for the imp001 and imp002).
+
+The SPIFlashLogger uses either the [Serializer library](https://electricimp.com/docs/libraries/utilities/serializer) or any other library for objects serialization with an equivalent interface.
+
+The libraries, used by the SPIFlashLogger in your case, must be added to your device code by `#require` statements.
+
+**To add SPIFlashLogger library to your project, add** `#require "SPIFlashLogger.class.nut:3.0.0"` **to the top of your device code.**
 
 ## Memory Efficiency
 
-The SPIFlash logger operates on 4KB sectors and 256-byte chunks. Objects needn't be aligned with chunks or sectors.  Some necessary overhead is added to the beginning of each sector, as well as each serialized object (assuming you are using the standard [Serializer library](https://electricimp.com/docs/libraries/utilities/serializer.1.0.0/)). The overhead includes:
+The SPIFlash logger operates on 4KB sectors and 256-byte chunks. Objects needn't be aligned with chunks or sectors.  Some necessary overhead is added to the beginning of each sector, as well as each serialized object (assuming you are using the standard [Serializer library](https://electricimp.com/docs/libraries/utilities/serializer)). The overhead includes:
 
 - Three bytes of every sector are expended on sector-level metadata.
 - A four-byte marker is added to the beginning of each serialized object to aid in locating objects in the datastream.
-- The *Serializer* object also adds some overhead to each object (see the [Serializer's documentation](https://electricimp.com/docs/libraries/utilities/serializer.1.0.0/) for more information).
+- The *Serializer* object also adds some overhead to each object (see the [Serializer's documentation](https://electricimp.com/docs/libraries/utilities/serializer) for more information).
 - After a reboot the sector metadata allows the class to locate the next write position at the next chunk. This wastes some of the previous chunk, though this behaviour can be overridden using the *getPosition()* and *setPosition()* methods.
 
 ## Class Usage
@@ -25,7 +31,7 @@ The SPIFlashLogger’s constructor takes four parameters, all of which are optio
 | --- | --- | --- |
 | *start* | 0 | The first byte in the SPIFlash to use (must be the first byte of a sector). |
 | *end*  | *spiflash.size()*   | The last byte in the SPIFlash to use (must be the last byte of a sector). |
-| *spiflash*  | **hardware.spiflash** | hardware.spiflash, or an object with an equivalent interface such as the [SPIFlash](https://electricimp.com/docs/libraries/hardware/spiflash.1.0.1/) library. |
+| *spiflash*  | **hardware.spiflash** | hardware.spiflash, or an object with an equivalent interface such as the [SPIFlash](https://electricimp.com/docs/libraries/hardware/spiflash) library. |
 | *serializer* | Serializer class | The static [Serializer library](https://electricimp.com/docs/libraries/utilities/serializer.1.0.0/), or an object with an equivalent interface. |
 
 ```squirrel
@@ -119,10 +125,17 @@ logger.read(
 );
 ```
 ### readSync(*index*)
- The *readSync()* method reads objects from the logger synchronously, returning a single log object for the *index* given. *readSync()*  will return the most recent object when `index == -1` and the oldest object when `index == 1` and throw an exception when `index == 0`.
- If the absolute value of *index* is greater than the number of logs, *readSync* will return null.
- *readSync* is starting from the current logger position which is equal to the current write position therefore `index == 0` could not contain any object and `index == -1` is equal to step back to read the last written object.
- For the `index > 0` logger is looking for an object in a first not free sector right after the current logger position or read the beginning of the sector at the current position if there is no more sectors with objects.
+
+The *readSync()* method reads objects from the logger synchronously, returning a single log object for the *index* given.
+
+*readSync()* returns:
+- the most recent object when `index == -1`,
+- the oldest object when `index == 1`,
+- *null* when the value of *index* is greater than the number of logs,
+- throws an exception when `index == 0`.
+
+*readSync*() is like a sync version of *read()*. It starts from the current logger position, which is equal to the current write position, therefore `index == 0` could not contain any object and `index == -1` is equal to step back to read the last written object.
+For the `index > 0` logger is looking for an object in a first not free sector right after the current logger position or read the beginning of the sector at the current position if there is no more sectors with objects.
 
  ```squirrel
  logger <- SPIFlashLogger(0, 4096 * 4);
