@@ -119,36 +119,32 @@ logger.read(
 );
 ```
 ### readSync(*index*)
- The *readSync()* method reads objects from the logger synchronously, returning a single log object for the *index* given. *readSync()* works similarly to *read()* - it will return the most recent object when `index == -1` and the oldest object when `index == 1`.  If the absolute value of *index* is greater than the number of logs, *readSync* will return null.
- Throw an exception if `index == 0`.
+ The *readSync()* method reads objects from the logger synchronously, returning a single log object for the *index* given. *readSync()*  will return the most recent object when `index == -1` and the oldest object when `index == 1` and throw an exception when `index == 0`.
+ If the absolute value of *index* is greater than the number of logs, *readSync* will return null.
+ *readSync* is starting from the current logger position which is equal to the current write position therefore `index == 0` could not contain any object and `index == -1` is equal to step back to read the last written object.
+ For the `index > 0` logger is looking for an object in a first not free sector right after the current logger position or read the beginning of the sector at the current position if there is no more sectors with objects.
 
  ```squirrel
- logger <- SPIFlashLogger(0, 4096*4);
+ logger <- SPIFlashLogger(0, 4096 * 4);
 
  local microsAtStart = hardware.micros()
- for(local i=0; i<=1500; i++)
-   logger.write(i)
+ for(local i = 0; i <= 1500; i++)
+     logger.write(i)
 
- server.log("Writing took " + (hardware.micros() - microsAtStart)/1000000.0 + " sec")
-
- microsAtStart = hardware.micros()
- server.log("first = " + logger.first() + " in " + (hardware.micros()-microsAtStart) + " μs")
+ server.log("Writing took " + (hardware.micros() - microsAtStart) / 1000000.0 + " sec")
 
  microsAtStart = hardware.micros()
- server.log("last  = " + logger.last()  + " in " + (hardware.micros()-microsAtStart) + " μs")
+ server.log("first = " + logger.first() + " in " + (hardware.micros() - microsAtStart) + " μs")
 
  microsAtStart = hardware.micros()
- server.log("Index 200 = " + logger.readSync(200)  + " in " + (hardware.micros()-microsAtStart) + " μs")
+ server.log("last  = " + logger.last()  + " in " + (hardware.micros() - microsAtStart) + " μs")
 
  microsAtStart = hardware.micros()
- server.log("Index 1178 = " + logger.readSync(1178)  + " in " + (hardware.micros()-microsAtStart) + " μs")
+ server.log("Index 200 = " + logger.readSync(200)  + " in " + (hardware.micros() - microsAtStart) + " μs")
 
- //Logs:
-    // Writing took 1.97511 sec
-    // first = 323 in 12074 μs
-    // last  = 1500 in 10012 μs
-    // Index 200 = 522 in 16285 μs
-    // Index 1178 = 1500 in 66542 μs
+ microsAtStart = hardware.micros()
+ server.log("Index 1178 = " + logger.readSync(1178)  + " in " + (hardware.micros() - microsAtStart) + " μs")
+
  ```
 
  ### first(*[default = null]*)
