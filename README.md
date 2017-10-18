@@ -2,7 +2,7 @@
 
 This is a library for IMP device.
 
-The SPIFlashLogger creates a circular log system, allowing you to log any serializable object (table, array, string, blob, integer, float, boolean and `null`) to the SPIFlash. If the log systems runs out of space in the SPIFlash, it begins overwriting the oldest logs.
+The SPIFlashLogger creates a circular log system, allowing you to log any serializable object (table, array, string, blob, integer, float, boolean and `null`) to the SPIFlash. If the log system runs out of space in the SPIFlash, it begins overwriting the oldest logs.
 
 The SPIFlashLogger works either via the [hardware.spiflash](https://electricimp.com/docs/api/hardware/spiflash) (built-in the imp003 or above) or any functionally compatible driver such as the [SPIFlash library](https://electricimp.com/docs/libraries/hardware/spiflash) (available for the imp001 and imp002).
 
@@ -78,8 +78,8 @@ The *dimensions()* method returns a table with the following keys, each of which
 
 ### write(*object*)
 
-Writes any serializable object to the memory allocated for the SPIFlashLogger. If the memory is full, the logger will begin overwriting the oldest entries.
-Current method does not catch exceptions which could throw the [Serializer library](https://electricimp.com/docs/libraries/utilities/serializer)
+Writes any serializable object to the memory allocated for the SPIFlashLogger. If the memory is full, the logger begins overwriting the oldest entries.
+If the provided object can not be serialized, the exception is thrown.
 
 ```squirrel
 function readAndSleep() {
@@ -94,7 +94,7 @@ function readAndSleep() {
 
 ### read(*onData[, onFinish][, step][, skip]*)
 
-The *read()* method reads objects asynchronously and provide each object details via callback function *onData*. It is possible to configure *step* to iterate through the objects and the number of objects to *skip* on start reading. And *onFinish* callback will be called on reading completion, termination or error. This mehanism was intended for the asynchronous processing of each log object, such as sending data to the agent and waiting for an acknowledgement.
+Reads objects asynchronously and provides each object details via callback function *onData*. It is possible to configure *step* to iterate through the objects and the number of objects to *skip* on start reading. And *onFinish* callback will be called on reading completion, termination or error. This mehanism was intended for the asynchronous processing of each log object, such as sending data to the agent and waiting for an acknowledgement.
 
 The *onData* callback takes three parameters: the deserialized object, the SPIFlash address of the (start of) the object, and a *next* callback, which itself takes a single parameter: a boolean value (default is `true`).
 
@@ -137,7 +137,7 @@ logger.read(
 ```
 ### readSync(*index*)
 
-The *readSync()* method reads objects from the logger synchronously, returning a single log object for the *index* given.
+Reads objects from the logger synchronously, returning a single log object for the specified *index*.
 
 *readSync()* returns:
 - the most recent object when `index == -1`,
@@ -194,7 +194,7 @@ For the `index > 0` logger is looking for an object in a first not free sector r
 
 ### erase(*[address]*)
 
-This method erases an object at spiflash address *address* by marking it erased. If *address* is not given then it will act as `eraseAll()` method with default parameter.
+This method erases an object at SPIFlash address *address* by marking it erased. If *address* is not specified, it behaves as `eraseAll()` method with the default parameter.
 
 ### eraseAll(*[force]*)
 
