@@ -78,7 +78,8 @@ The *dimensions()* method returns a table with the following keys, each of which
 
 ### write(*object*)
 
-Writes any serializable object to the memory allocated to the SPIFlashLogger. If the memory is full, the logger will begin overwriting the oldest entries.
+Writes any serializable object to the memory allocated for the SPIFlashLogger. If the memory is full, the logger will begin overwriting the oldest entries.
+Current method does not catch exceptions which could throw the [Serializer library](https://electricimp.com/docs/libraries/utilities/serializer)
 
 ```squirrel
 function readAndSleep() {
@@ -183,7 +184,7 @@ For the `index > 0` logger is looking for an object in a first not free sector r
 
 ### erase(*[address]*)
 
-This method erases an object at spiflash address *address* by marking it erased. If *address* is not given, it will (properly) erase all allocated memory.
+This method erases an object at spiflash address *address* by marking it erased. If *address* is not given then it will act as `eraseAll()` method with default parameter.
 
 ### eraseAll(*[force]*)
 
