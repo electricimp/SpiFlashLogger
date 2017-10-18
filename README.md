@@ -94,15 +94,25 @@ function readAndSleep() {
 
 ### read(*onData[, onFinish][, step][, skip]*)
 
-The *read()* method reads objects from the logger asynchronously, calling the function *(see below)* passed into *onData* on each (subject to *step* and *skip*), and early termination within *onData*). This allows for the asynchronous processing of each log object, such as sending data to the agent and waiting for an acknowledgement.
+The *read()* method reads objects asynchronously and provide each object details via callback function *onData*. It is possible to configure *step* to iterate through the objects and the number of objects to *skip* on start reading. And *onFinish* callback will be called on reading completion, termination or error. This mehanism was intended for the asynchronous processing of each log object, such as sending data to the agent and waiting for an acknowledgement.
 
 The *onData* callback takes three parameters: the deserialized object, the SPIFlash address of the (start of) the object, and a *next* callback, which itself takes a single parameter: a boolean value (default is `true`).
 
-Reading an object does not erase it, but the object can be erased in the body of *onData* by passing *address* to the *erase()* method. *onData* should call *next* when it is is ready to scan for the next item. Passing *false* into *next* aborts the scanning, skipping to *onFinish*.
+| Parameter 	| Data Type | Description |
+| ------------- | --------- | ----------- |
+| object        | Any       | Deserialized object |
+| address       | Number    | An object start address |
+| next          | Function  | Callback function to iterate next object. Provide `false` as argument to stop objects iteration|
+
+Logger does not erase object on reading but each object can be erased in the callback method *onData* by passing *address* to the *erase()* method.
+
+*onData* should call *next* when it is ready for the next object.
+
+Passing *false* into *next* aborts the objects iteration process and call *onFinish* immediately.
 
 The optional *onFinish* callback will be called after the last object is located. It takes no parameters.
 
-*step* is an optional parameter controlling the rate at which the scan steps through objects, for example, setting `step == 2` will cause *onData* to be called only for every second object found. Negative values are allowed for scanning through objects backwards, for example, `step == -1` will scan through all objects, starting from the most recently written and stepping backwards.
+*step* is an optional parameter controlling the rate at which the iterate steps through objects, for example, setting `step == 2` will cause *onData* to be called only for every second object found. Negative values are allowed for scanning through objects backwards, for example, `step == -1` will scan through all objects, starting from the most recently written and stepping backwards.
 
 *skip* can be used to skip a number of objects at the start of reading. For example, a *step* of 2 and *skip* of 0 (the default) will call *onData* for every second object *starting from the first*, whereas with `skip == 1` it will be every second object *starting from the second*, thus the two options provide full coverage with no overlap. As a potential use case, one might log two versions of each message: a short, concise version, and a longer, more detailed version. `step == 2` could then be used to pick up only the concise versions.
 
