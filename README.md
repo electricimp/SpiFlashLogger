@@ -113,6 +113,8 @@ This mehanism is intended for the asynchronous processing of each log object, su
 | address       | Number    | The object's start address in the SPIFlash. |
 | next          | Function  | Callback function to iterate the next logged object. Your application should call it either to continue the read operation or to terminate it. It has one optional boolean parameter: specify `true` (default value) to continue the read operation and ask for the next logged object, specify `false` to terminate the read operation (in this case *onFinish* callback will be called immediately). |
 
+**Note**, It is safe to call and process several read operations in parallel.
+
 *step* and *skip* parameters are introduced to provide a full coverage of possible use cases. For example:
 - `step == 2, skip == 0`: *onData* to be called for every second object only, starting from the oldest logged object.
 - `step == 2, skip == 1`: *onData* to be called for every second object only, starting from the second oldest logged object.
@@ -121,7 +123,7 @@ This mehanism is intended for the asynchronous processing of each log object, su
 
 As a potential use case, one might log two versions of each message: a short, concise version, and a longer, more detailed version. `step == 2` could then be used to pick up only the concise versions.
 
-Note, the logger does not erase object on reading but each object can be erased in the *onData* callback by passing *address* to the *erase()* method.
+**Note**, the logger does not erase object on reading but each object can be erased in the *onData* callback by passing *address* to the *erase()* method.
 
 ```squirrel
 logger.read(
