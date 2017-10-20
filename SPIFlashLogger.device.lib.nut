@@ -51,7 +51,7 @@ const SECTOR_HAS_REMOVED_OBJECT = 0x08;
 
 class SPIFlashLogger {
 
-    static version = "3.0.0";
+    static VERSION = "3.0.0";
 
     _flash = null; // hardware.spiflash or an object with an equivalent interface
     _serializer = null; // github.com/electricimp/serializer (or an object with an equivalent interface)
@@ -71,7 +71,7 @@ class SPIFlashLogger {
 
     // This calss uses to read the serialized object from the flash
     // and de-serialize it.
-    _loggerSerializedObject = class {
+    _LoggerSerializedObject = class {
         _flash = null;
         _logger = null;
         _addr = null;
@@ -93,20 +93,14 @@ class SPIFlashLogger {
             _payload = null;
             _len = 0;
 
-            init(addr);
-        }
-
-        // internal method to initialize object:
-        // check start code and read object size
-        function init(pos) {
-            local requested_pos = pos;
+            // check start code and read object size
             _logger._enable();
             // Get the meta (for checking) and the object length (to know how much to read)
-            local marker = _flash.read(pos, SPIFLASHLOGGER_OBJECT_MARKER_SIZE).tostring();
-            local len = _flash.read(pos + SPIFLASHLOGGER_OBJECT_MARKER_SIZE, 2).readn('w');
+            local marker = _flash.read(addr, SPIFLASHLOGGER_OBJECT_MARKER_SIZE).tostring();
+            _len = _flash.read(addr + SPIFLASHLOGGER_OBJECT_MARKER_SIZE, 2).readn('w');
             _logger._disable();
-            _len = len;
-            _isValid = (marker == SPIFLASHLOGGER_OBJECT_MARKER && len > 0 && len < _logger._size);
+
+            _isValid = (marker == SPIFLASHLOGGER_OBJECT_MARKER && _len > 0 && _len < _logger._size);
         }
 
         //
@@ -196,7 +190,7 @@ class SPIFlashLogger {
     // reading and update;
     // This class write all sector write operations
     // and update sectors metadata accordingly
-    _loggerSector = class {
+    _LoggerSector = class {
         // position for reading
         _pos_read = 0;
         // position for writing
@@ -482,7 +476,7 @@ class SPIFlashLogger {
 
     // This class was intoduced to simplify iteration
     // through the written logs
-    _loggerObjectIterator = class {
+    _LoggerObjectIterator = class {
         _addr = null; // current start address
         _sector = -1; // working sector
         _pos = 0;
@@ -520,7 +514,7 @@ class SPIFlashLogger {
         //     step - step of iteration
         //     skip - the number of items to skip
         // Return:
-        //     SPIFlashLogger._loggerSerializedObject - object or null
+        //     SPIFlashLogger._LoggerSerializedObject - object or null
         function getNextObject(step, skip = 0) {
             local is_init = _sector_start_codes == null;
             local steps_need = is_init ? skip + 1 : math.abs(step);
@@ -559,7 +553,7 @@ class SPIFlashLogger {
             _start_code_pos = _start_code_pos + (step > 0 ? 1 : 0);
             _sector_available_data -= steps_need;
             local spi_addr = _logger._start + _sector * SPIFLASHLOGGER_SECTOR_SIZE + SPIFLASHLOGGER_SECTOR_METADATA_SIZE + obj_addr;
-            return SPIFlashLogger._loggerSerializedObject(spi_addr, _logger, _flash);
+            return SPIFlashLogger._LoggerSerializedObject(spi_addr, _logger, _flash);
         }
 
         // Helper method to check if we reached the last sector
@@ -762,7 +756,7 @@ class SPIFlashLogger {
         if (typeof index != "integer" || index == 0)
             throw "Invalid argument.";
         if (index < 0) {
-            local objectIterator = SPIFlashLogger._loggerObjectIterator(this, _flash);
+            local objectIterator = SPIFlashLogger._LoggerObjectIterator(this, _flash);
             return objectIterator;
         }
 
@@ -781,7 +775,7 @@ class SPIFlashLogger {
             return null;
         // Create object iterator from start position sector
         local objectIterator =
-            SPIFlashLogger._loggerObjectIterator(this, _flash, _start + sec * SPIFLASHLOGGER_SECTOR_SIZE);
+            SPIFlashLogger._LoggerObjectIterator(this, _flash, _start + sec * SPIFLASHLOGGER_SECTOR_SIZE);
         return objectIterator;
     }
 
@@ -872,7 +866,7 @@ class SPIFlashLogger {
 
         if (addr == null) return false;
 
-        local obj = SPIFlashLogger._loggerSerializedObject(addr, this, _flash);
+        local obj = SPIFlashLogger._LoggerSerializedObject(addr, this, _flash);
         if (!obj.isValid())
             return false;
         return obj.erase();
@@ -892,7 +886,7 @@ class SPIFlashLogger {
         local found_last_pos = false;
         for (local sector = 0; sector < _sectors; sector++) {
             local sectorItem =
-                SPIFlashLogger._loggerSector(_start + sector * SPIFLASHLOGGER_SECTOR_SIZE,
+                SPIFlashLogger._LoggerSector(_start + sector * SPIFLASHLOGGER_SECTOR_SIZE,
                     _start + (sector + 1) * SPIFLASHLOGGER_SECTOR_SIZE,
                     _flash,
                     this);
