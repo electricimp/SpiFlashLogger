@@ -2,7 +2,7 @@
 
 This is a library for IMP device.
 
-The SPIFlashLogger creates a circular log system, allowing you to log any serializable object (table, array, string, blob, integer, float, boolean and `null`) to the SPIFlash. If the log systems runs out of space in the SPIFlash, it begins overwriting the oldest logs.
+The SPIFlashLogger creates a circular log system, allowing you to log any serializable object (table, array, string, blob, integer, float, boolean and `null`) to the SPIFlash. If the log system runs out of space in the SPIFlash, it begins overwriting the oldest logs.
 
 The SPIFlashLogger works either via the [hardware.spiflash](https://electricimp.com/docs/api/hardware/spiflash) (built-in the imp003 or above) or any functionally compatible driver such as the [SPIFlash library](https://electricimp.com/docs/libraries/hardware/spiflash) (available for the imp001 and imp002).
 
@@ -78,8 +78,8 @@ The *dimensions()* method returns a table with the following keys, each of which
 
 ### write(*object*)
 
-Writes any serializable object to the memory allocated for the SPIFlashLogger. If the memory is full, the logger will begin overwriting the oldest entries.
-Current method does not catch exceptions which could throw the [Serializer library](https://electricimp.com/docs/libraries/utilities/serializer)
+Writes any serializable object to the memory allocated for the SPIFlashLogger. If the memory is full, the logger begins overwriting the oldest entries.
+If the provided object can not be serialized, the exception is thrown by the underlying serializer class.
 
 ```squirrel
 function readAndSleep() {
@@ -92,19 +92,38 @@ function readAndSleep() {
 }
 ```
 
-### read(*onData[, onFinish][, step][, skip]*)
+### read(*onData\[, onFinish]\[, step]\[, skip]*)
 
-The *read()* method reads objects from the logger asynchronously, calling the function *(see below)* passed into *onData* on each (subject to *step* and *skip*), and early termination within *onData*). This allows for the asynchronous processing of each log object, such as sending data to the agent and waiting for an acknowledgement.
+Reads objects from the logger asynchronously.
 
-The *onData* callback takes three parameters: the deserialized object, the SPIFlash address of the (start of) the object, and a *next* callback, which itself takes a single parameter: a boolean value (default is `true`).
+This mehanism is intended for the asynchronous processing of each log object, such as sending data to the agent and waiting for an acknowledgement.
 
-Reading an object does not erase it, but the object can be erased in the body of *onData* by passing *address* to the *erase()* method. *onData* should call *next* when it is is ready to scan for the next item. Passing *false* into *next* aborts the scanning, skipping to *onFinish*.
+| Parameter 	| Data Type | Required? | Description |
+| ------------- | --------- | --------- | ----------- |
+| onData        | Function  |    yes    | Callback that provides the object which has been read from the logger. See below. |
+| onFinish      | Function  |    no     | Callback that is called after the last object is provided (i.e. there are no more objects to return by the current *read* operation), or when the operation it terminated, or in case of an error The callback has no parameters. |
+| step          | Number    |    no     | The rate at which the read operation steps through the logged objects. Must not be 0. If it has a positive value the read operation starts from the oldest logged object. If it has a negative value, the read operation starts from the most recently written object and steps backwards. By default : 1 |
+| skip          | Number    |    no     | Skips the specified number of the logged objects at the start of the reading. Must not has a negative value. By default: 0 |
 
-The optional *onFinish* callback will be called after the last object is located. It takes no parameters.
+*onData* callback has the following signature:  **ondata(object, address, next)**, where
 
-*step* is an optional parameter controlling the rate at which the scan steps through objects, for example, setting `step == 2` will cause *onData* to be called only for every second object found. Negative values are allowed for scanning through objects backwards, for example, `step == -1` will scan through all objects, starting from the most recently written and stepping backwards.
+| Parameter 	| Data Type | Description |
+| ------------- | --------- | ----------- |
+| object        | Any       | Deserialized log object returned by the read operation. |
+| address       | Number    | The object's start address in the SPIFlash. |
+| next          | Function  | Callback function to iterate the next logged object. Your application should call it either to continue the read operation or to terminate it. It has one optional boolean parameter: specify `true` (default value) to continue the read operation and ask for the next logged object, specify `false` to terminate the read operation (in this case *onFinish* callback will be called immediately). |
 
-*skip* can be used to skip a number of objects at the start of reading. For example, a *step* of 2 and *skip* of 0 (the default) will call *onData* for every second object *starting from the first*, whereas with `skip == 1` it will be every second object *starting from the second*, thus the two options provide full coverage with no overlap. As a potential use case, one might log two versions of each message: a short, concise version, and a longer, more detailed version. `step == 2` could then be used to pick up only the concise versions.
+**Note**, It is safe to call and process several read operations in parallel.
+
+*step* and *skip* parameters are introduced to provide a full coverage of possible use cases. For example:
+- `step == 2, skip == 0`: *onData* to be called for every second object only, starting from the oldest logged object.
+- `step == 2, skip == 1`: *onData* to be called for every second object only, starting from the second oldest logged object.
+- `step == -1, skip == 0`: *onData* to be called for every object, starting from the most recently written object and steps backwards.
+- `step == -2, skip == 1`: *onData* to be called for every second object only, starting from the second most recently written object and steps backwards.
+
+As a potential use case, one might log two versions of each message: a short, concise version, and a longer, more detailed version. `step == 2` could then be used to pick up only the concise versions.
+
+**Note**, the logger does not erase object on reading but each object can be erased in the *onData* callback by passing *address* to the *erase()* method.
 
 ```squirrel
 logger.read(
@@ -127,7 +146,7 @@ logger.read(
 ```
 ### readSync(*index*)
 
-The *readSync()* method reads objects from the logger synchronously, returning a single log object for the *index* given.
+Reads objects from the logger synchronously, returning a single log object for the specified *index*.
 
 *readSync()* returns:
 - the most recent object when `index == -1`,
@@ -184,7 +203,7 @@ For the `index > 0` logger is looking for an object in a first not free sector r
 
 ### erase(*[address]*)
 
-This method erases an object at spiflash address *address* by marking it erased. If *address* is not given then it will act as `eraseAll()` method with default parameter.
+This method erases an object at SPIFlash address *address* by marking it erased. If *address* is not specified, it behaves as `eraseAll()` method with the default parameter.
 
 ### eraseAll(*[force]*)
 
