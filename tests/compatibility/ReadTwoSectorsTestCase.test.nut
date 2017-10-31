@@ -69,6 +69,7 @@ class ReadTwoSectorsTestCase extends Core {
                     next();
                 } catch (ex) {
                     reject(ex);
+                    next(false);
                 }
             }.bindenv(this), resolve);
         }.bindenv(this));
@@ -88,6 +89,7 @@ class ReadTwoSectorsTestCase extends Core {
                     next();
                 } catch (ex) {
                     reject(ex);
+                    next(false);
                 }
             }.bindenv(this), resolve, 2);
         }.bindenv(this));
@@ -107,6 +109,7 @@ class ReadTwoSectorsTestCase extends Core {
                     next();
                 } catch (ex) {
                     reject(ex);
+                    next(false);
                 }
             }.bindenv(this), resolve, -1);
         }.bindenv(this));

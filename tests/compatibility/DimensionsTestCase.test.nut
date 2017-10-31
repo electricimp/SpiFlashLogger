@@ -30,7 +30,7 @@
 // Tests for SPIFlashLogger.dimensions()
 class DimensionsTestCase extends Core {
 
-    function testBasic() {
+    function testDefaultValues() {
         return Promise(function(resolve, reject) {
             try {
                 if (!isAvailable()) {
@@ -51,13 +51,14 @@ class DimensionsTestCase extends Core {
                     reject(ex);
                 }
                 resolve();
+                return;
             } catch (ex) {
                 reject("Unexpected error: " + ex);
             }
         }.bindenv(this));
     }
 
-    function testWithStart() {
+    function testStartValueSetup() {
         return Promise(function(resolve, reject) {
             try {
                 if (!isAvailable()) {
@@ -77,6 +78,7 @@ class DimensionsTestCase extends Core {
                     assertDeepEqualWrap(size, dimensions.size, "dimensions.size");
                 } catch (ex) {
                     reject(ex);
+                    return;
                 }
                 resolve();
             } catch (ex) {
@@ -85,7 +87,7 @@ class DimensionsTestCase extends Core {
         }.bindenv(this));
     }
 
-    function testWithEnd() {
+    function testEndValueSetup() {
         return Promise(function(resolve, reject) {
             try {
                 if (!isAvailable()) {
@@ -105,6 +107,7 @@ class DimensionsTestCase extends Core {
                     assertDeepEqualWrap(size, dimensions.size, "dimensions.size");
                 } catch (ex) {
                     reject(ex);
+                    return;
                 }
                 resolve();
             } catch (ex) {
@@ -113,7 +116,7 @@ class DimensionsTestCase extends Core {
         }.bindenv(this));
     }
 
-    function testWithStartAndEnd() {
+    function testStartAndEndValuesSetup() {
         return Promise(function(resolve, reject) {
             try {
                 if (!isAvailable()) {
@@ -134,6 +137,7 @@ class DimensionsTestCase extends Core {
                     assertDeepEqualWrap(size, dimensions.size, "dimensions.size");
                 } catch (ex) {
                     reject(ex);
+                    return;
                 }
                 resolve();
             } catch (ex) {

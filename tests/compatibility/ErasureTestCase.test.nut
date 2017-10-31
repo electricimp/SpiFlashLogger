@@ -30,7 +30,7 @@
 // Tests for SPIFlashLogger.erase() and eraseAll()
 class ErasureTestCase extends Core {
 
-    function testReadEraseRead() {
+    function testReadEraseReadSequence() {
         if (!isAvailable()) {
             return;
         }
@@ -52,6 +52,7 @@ class ErasureTestCase extends Core {
                     next();
                 } catch (ex) {
                     reject(ex);
+                    next(false);
                 }
             }.bindenv(this), resolve);
         }.bindenv(this))
@@ -59,6 +60,7 @@ class ErasureTestCase extends Core {
             return Promise(function(resolve, reject) {
                 logger.read(function(data, addr, next) {
                     reject("Data was not erased");
+                    next(false);
                 }.bindenv(this), resolve);
             }.bindenv(this));
         }.bindenv(this));
@@ -82,6 +84,7 @@ class ErasureTestCase extends Core {
             logger.eraseAll();
             logger.read(function(data, addr, next) {
                 reject("Data was not erased");
+                next(false);
             }.bindenv(this), resolve);
         }.bindenv(this));
     }

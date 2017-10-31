@@ -46,30 +46,32 @@ class SyncOperationsTestCase extends Core {
                 start *= SPIFLASHLOGGER_SECTOR_SIZE;
                 end   *= SPIFLASHLOGGER_SECTOR_SIZE;
                 logger = SPIFlashLogger(start, end);
-                logger.erase();
+                // Erase all data
+                logger.eraseAll(true);
+
                 for (local i = 0; i <= _max_sector_logs; i++) { // 175
                     logger.write(i + _postfix);
                     server.log(i);
                 }
                 resolve();
             } catch (ex) {
-                reject("Unexpected error: " + ex);
+                reject("Unexpected error on test setup: " + ex);
             }
         }.bindenv(this));
     }
 
     function _checkFirstLastAndReadSync(vstart, vend, error) {
-      // Check first and last
-      assertEqual(vstart + _postfix, logger.first(), error + "Unexpected first log");
-      assertEqual(vend + _postfix, logger.last(), error + "Unexpected last log");
-      // minimal test of the readSync
-      assertEqual((1 + vstart) + _postfix, logger.readSync(2), error + "Unexpected 2-nd log value");
-      assertEqual((vend - 1) + _postfix, logger.readSync(-2), error + "Unexpected minus 2-nd log value");
+        // Check first and last
+        assertEqual(vstart + _postfix, logger.first(), error + "Unexpected first log");
+        assertEqual(vend + _postfix, logger.last(), error + "Unexpected last log");
+        // minimal test of the readSync
+        assertEqual((1 + vstart) + _postfix, logger.readSync(2), error + "Unexpected 2-nd log value");
+        assertEqual((vend - 1) + _postfix, logger.readSync(-2), error + "Unexpected minus 2-nd log value");
     }
 
     function testReadSync() {
         // Check first sector
-        assertEqual(logger.getPosition() < logger._start + SPIFLASHLOGGER_SECTOR_SIZE, true);
+        assertEqual(logger.getPosition() < logger._start + SPIFLASHLOGGER_SECTOR_SIZE, true, "Wrong logger position");
         // check reading in scope of one sector
         _checkFirstLastAndReadSync(0, _max_sector_logs, "One sector test.");
         // cross sector border: last object between two sectors
@@ -89,7 +91,7 @@ class SyncOperationsTestCase extends Core {
         // Check first sector position
         assertEqual(logger.getPosition() < logger._start + SPIFLASHLOGGER_SECTOR_SIZE, true);
         // Test values
-        _checkFirstLastAndReadSync(_max_sector_logs + 2,
+        _checkFirstLastAndReadSync(_max_sector_logs + 1,
             2*_max_sector_logs + 10, "Sector overwrite test.");
     }
 }

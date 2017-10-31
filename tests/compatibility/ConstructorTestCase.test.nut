@@ -95,36 +95,4 @@ class ConstructorTestCase extends Core {
       // Check sync read from the previous sector
       assertEqual((_max_sector_logs + 1) + _postfix, logger2.readSync(-2), "Failed to read data after recovery");
   }
-
-  // User could create loggers in the different memory areas
-  // Therefore if constructor is getting more then one startcode then
-  // it automatically erase all logs
-  function testConstructorErase() {
-      local logger = SPIFlashLogger(0, SPIFLASHLOGGER_SECTOR_SIZE*2);
-      logger.erase();
-      for (local i = 0; i <= _max_sector_logs; i++) { // 175
-          logger.write(i + _postfix);
-      }
-      local logger2 = SPIFlashLogger(SPIFLASHLOGGER_SECTOR_SIZE*2, SPIFLASHLOGGER_SECTOR_SIZE*4);
-      logger2.erase();
-      for (local i = 0; i <= _max_sector_logs; i++) { // 175
-          logger2.write(i + _postfix);
-      }
-
-      return Promise(function(resolve, reject) {
-          try {
-              if (!isAvailable()) {
-                  resolve();
-                  return;
-              }
-              local logger3 = SPIFlashLogger(0, SPIFLASHLOGGER_SECTOR_SIZE*4);
-              // Logger3 should erase all data because it has wrong start codes from the
-              // previous logs
-              logger3.read(reject, resolve);
-
-          } catch (ex) {
-              reject("Unexpected error: " + ex);
-          }
-      }.bindenv(this));
-  }
 }

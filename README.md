@@ -1,4 +1,4 @@
-# SPIFlashLogger 3.0.0
+# SPIFlashLogger 2.2.0
 
 This is a library for IMP device.
 
@@ -10,13 +10,13 @@ The SPIFlashLogger uses either the [Serializer library](https://electricimp.com/
 
 The libraries, used by the SPIFlashLogger in your case, must be added to your device code by `#require` statements.
 
-**To add SPIFlashLogger library to your project, add** `#require "SPIFlashLogger.class.nut:3.0.0"` **to the top of your device code.**
+**To add SPIFlashLogger library to your project, add** `#require "SPIFlashLogger.class.nut:2.2.0"` **to the top of your device code.**
 
 ## Memory Efficiency
 
 The SPIFlash logger operates on 4KB sectors and 256-byte chunks. Objects needn't be aligned with chunks or sectors.  Some necessary overhead is added to the beginning of each sector, as well as each serialized object (assuming you are using the standard [Serializer library](https://electricimp.com/docs/libraries/utilities/serializer)). The overhead includes:
 
-- Three bytes of every sector are expended on sector-level metadata.
+- Six bytes of every sector are expended on sector-level metadata.
 - A four-byte marker is added to the beginning of each serialized object to aid in locating objects in the datastream.
 - The *Serializer* object also adds some overhead to each object (see the [Serializer's documentation](https://electricimp.com/docs/libraries/utilities/serializer) for more information).
 - After a reboot the sector metadata allows the class to locate the next write position at the next chunk. This wastes some of the previous chunk, though this behaviour can be overridden using the *getPosition()* and *setPosition()* methods.
@@ -37,7 +37,7 @@ The SPIFlashLogger’s constructor takes four parameters, all of which are optio
 ```squirrel
 // Initializing a SPIFlashLogger on an imp003+
 #require "Serializer.class.nut:1.0.0"
-#require "SPIFlashLogger.class.nut:3.0.0"
+#require "SPIFlashLogger.class.nut:2.2.0"
 
 // Initialize Logger to use the entire SPI Flash
 logger <- SPIFlashLogger();
@@ -47,7 +47,7 @@ logger <- SPIFlashLogger();
 // Initializing a SPIFlashLogger on an imp002
 #require "Serializer.class.nut:1.0.0"
 #require "SPIFlash.class.nut:1.0.1"
-#require "SPIFlashLogger.class.nut:3.0.0"
+#require "SPIFlashLogger.class.nut:2.2.0"
 
 // Setup SPI Bus
 spi <- hardware.spi257;

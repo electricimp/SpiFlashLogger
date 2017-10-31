@@ -26,45 +26,35 @@
 
 @include __PATH__+"/../Core.nut"
 
-// WriteTillOverrideTestCase
-// Tests for SPIFlashLogger.write()
-class WriteTillOverrideTestCase extends Core {
+// OverflowTestCase
+// Tests for SPIFlashLogger
+class SectorIdOverflowTestCase extends Core {
 
-    function testFirstSectorOverride() {
+    function testSectorIdOverflow() {
         return Promise(function(resolve, reject) {
             try {
                 if (!isAvailable()) {
                     resolve();
                     return;
                 }
-                local start = 0;
-                local end = (start + 1) * SPIFLASHLOGGER_SECTOR_SIZE;
-                local logger = SPIFlashLogger(start, end, false, Serializer);
-                logger.erase();
-                local message = 1;
-                local messageDifferent = 2;
-                local messagesPerSector = SPIFLASHLOGGER_SECTOR_SIZE / Serializer.sizeof(message, SPIFLASHLOGGER_OBJECT_MARKER);
-                for (local i = 0; i < messagesPerSector + 1; i++) {
-                    if (i < messagesPerSector) {
-                        logger.write(message);
-                    } else {
-                        logger.write(messageDifferent);
-                    }
+                local sectors = 5;
+                local start   = 0;
+                local end     = start + sectors;
+                local logger  = SPIFlashLogger(start * SPIFLASHLOGGER_SECTOR_SIZE, end * SPIFLASHLOGGER_SECTOR_SIZE);
+                logger.eraseAll(true);
+                logger._next_sec_id = 0x7FFFFFFE;
+
+                for (local i = 0; i < 400; i++) {
+                    logger.write(i);
                 }
-                local hasData = false;
-                logger.read(function(data, addr, next) {
-                    hasData = true;
-                    try {
-                        assertDeepEqualWrap(messageDifferent, data, "Wrong data");
-                        resolve();
-                    } catch (ex) {
-                        reject(ex);
-                    }
-                    next(false);
-                }.bindenv(this), function() {
-                  if (!hasData)
-                      reject();
-                }.bindenv(this));
+
+                assertTrue(logger._next_sec_id < sectors, "Failed to handle next sector id overflow");
+                local logger2  = SPIFlashLogger(start * SPIFLASHLOGGER_SECTOR_SIZE, end * SPIFLASHLOGGER_SECTOR_SIZE);
+                // Check the position correctly recovered
+                assertTrue(logger2.getPosition() - logger.getPosition() >= 0, "Wrong position recovery in case of overflow.");
+                // Check an internal counter recovery
+                assertEqual(logger2._next_sec_id, logger._next_sec_id, "Wrong sector id after recovery");
+                resolve();
             } catch (ex) {
                 reject("Unexpected error: " + ex);
             }

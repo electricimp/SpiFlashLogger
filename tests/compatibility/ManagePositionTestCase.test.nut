@@ -30,7 +30,7 @@
 // Tests for SPIFlashLogger.getPosition() and setPosition(position)
 class ManagePositionTestCase extends Core {
 
-    function testBasic() {
+    function testSetPosition() {
         return Promise(function(resolve, reject) {
             if (!isAvailable()) {
                 resolve();
@@ -69,6 +69,7 @@ class ManagePositionTestCase extends Core {
                     next();
                 } catch (ex) {
                     reject(ex);
+                    next(false);
                 }
             }.bindenv(this), resolve);
         }.bindenv(this));
