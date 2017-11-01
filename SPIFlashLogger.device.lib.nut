@@ -38,6 +38,11 @@ const SPIFLASHLOGGER_SECTOR_DIRTY = 0x00;       // Flag for dirty sectors
 const SPIFLASHLOGGER_SECTOR_CLEAN = 0xFF;       // Flag for clean sectors
 
 
+// The SPIFlashLogger creates a circular log system,
+// allowing you to log any serializable object
+// (table, array, string, blob, integer, float, boolean and null) to the SPIFlash.
+// If the log system runs out of space in the SPIFlash,
+// it begins overwriting the oldest logs.
 class SPIFlashLogger {
 
     static VERSION = "2.2.0";
@@ -50,15 +55,28 @@ class SPIFlashLogger {
     _end = null;        // Last block to use for logging
     _len = null;        // The length of the flash available (end-start)
     _sectors = 0;       // The number of sectors in _len
-    _max_data = 0;      // The maximum data we can push at once
+    _maxData = 0;      // The maximum data we can push at once
 
-    _at_sec = 0;        // Current sector we're writing to
-    _at_pos = 0;        // Current position we're writing to in the sector
+    _atSec = 0;        // Current sector we're writing to
+    _atPos = 0;        // Current position we're writing to in the sector
 
     _map = null;        // Array of sector maps
     _enables = 0;       // Counting semaphore for _enable/_disable
-    _next_sec_id = 1;   // The next sector we should write to
+    _nextSectorId = 1;   // The next sector we should write to
 
+    // ------------------------ public API -------------------
+
+    //
+    // Constructor
+    // Parameters:
+    //      start        - spi flash start address for the logger
+    //      end          - spi flash end address for the logger
+    //      flash        - spi flash object see `hardware.spiflash`
+    //                     (https://electricimp.com/docs/hardware/spiflash)
+    //      serializer   - the serializer instance which is responsible for object
+    //                     serialization and de-serialization
+    //                     (for example: https://github.com/electricimp/Serializer)
+    //
     constructor(start = null, end = null, flash = null, serializer = null) {
         // Set the SPIFlash, or try and set with hardware.spiflash
         try { _flash = flash ? flash : hardware.spiflash; }
@@ -87,7 +105,7 @@ class SPIFlashLogger {
         // Set the other utility properties
         _len = _end - _start;
         _sectors = _len / SPIFLASHLOGGER_SECTOR_SIZE;
-        _max_data = _sectors * SPIFLASHLOGGER_SECTOR_BODY_SIZE;
+        _maxData = _sectors * SPIFLASHLOGGER_SECTOR_BODY_SIZE;
 
         // Can compress this by eight by using bits instead of bytes
         _map = blob(_sectors);
@@ -96,14 +114,30 @@ class SPIFlashLogger {
         _init();
     }
 
+    // This method returns a table with the following keys,
+    // each of which gives access to an integer value:
+    //   size	   - The size of the SPIFlash in bytes
+    //   len     - The number of bytes allocated to the logger
+    //   start   - The first byte used by the logger
+    //   end     - The last byte used by the logger
+    //   sectors - The number of sectors allocated to the logger
+    //   sectorSize - The size of sectors in bytes
     function dimensions() {
         return { "size": _size, "len": _len, "start": _start, "end": _end, "sectors": _sectors, "sector_size": SPIFLASHLOGGER_SECTOR_SIZE }
     }
 
+    // Writes any serializable object to the memory allocated
+    // for the SPIFlashLogger. If the memory is full,
+    // the logger begins overwriting the oldest entries.
+    // If the provided object can not be serialized,
+    // the exception is thrown by the underlying serializer class.
+    //
+    // Parameters:
+    //    object - an object to serialize and save
     function write(object) {
         // Check of the object will fit
-        local obj_len = _serializer.sizeof(object, SPIFLASHLOGGER_OBJECT_MARKER);
-        if (obj_len > _max_data) throw "Cannot store objects larger than alloted memory."
+        local objLength = _serializer.sizeof(object, SPIFLASHLOGGER_OBJECT_MARKER);
+        if (objLength > _maxData) throw "Cannot store objects larger than alloted memory."
 
         // Serialize the object
         local obj = _serializer.serialize(object, SPIFLASHLOGGER_OBJECT_MARKER);
@@ -111,97 +145,130 @@ class SPIFlashLogger {
         _enable();
 
         // Write one sector at a time with the metadata attached
-        local obj_pos = 0;
-        local obj_remaining = obj_len;
+        local objPos = 0;
+        local objRemaining = objLength;
         do {
 
             // How far are we from the end of the sector
-            if (_at_pos < SPIFLASHLOGGER_SECTOR_METADATA_SIZE) _at_pos = SPIFLASHLOGGER_SECTOR_METADATA_SIZE;
-            local sec_remaining = SPIFLASHLOGGER_SECTOR_SIZE - _at_pos;
-            if (obj_remaining < sec_remaining) sec_remaining = obj_remaining;
+            if (_atPos < SPIFLASHLOGGER_SECTOR_METADATA_SIZE) _atPos = SPIFLASHLOGGER_SECTOR_METADATA_SIZE;
+            local secRemaining = SPIFLASHLOGGER_SECTOR_SIZE - _atPos;
+            if (objRemaining < secRemaining) secRemaining = objRemaining;
 
             // We are too close to the end of the sector, skip to the next sector
-            if (obj_pos == 0 && sec_remaining < SPIFLASHLOGGER_OBJECT_MIN_SIZE) {
-                _at_sec = (_at_sec + 1) % _sectors;
-                _at_pos = SPIFLASHLOGGER_SECTOR_METADATA_SIZE;
+            if (objPos == 0 && secRemaining < SPIFLASHLOGGER_OBJECT_MIN_SIZE) {
+                _atSec = (_atSec + 1) % _sectors;
+                _atPos = SPIFLASHLOGGER_SECTOR_METADATA_SIZE;
             }
 
             // Now write the data
-            _write(obj, _at_sec, _at_pos, obj_pos, sec_remaining);
-            _map[_at_sec] = SPIFLASHLOGGER_SECTOR_DIRTY;
+            _write(obj, _atSec, _atPos, objPos, secRemaining);
+            _map[_atSec] = SPIFLASHLOGGER_SECTOR_DIRTY;
 
             // Update the positions
-            obj_pos += sec_remaining;
-            obj_remaining -= sec_remaining;
-            _at_pos += sec_remaining;
-            if (_at_pos >= SPIFLASHLOGGER_SECTOR_SIZE) {
-                _at_sec = (_at_sec + 1) % _sectors;
-                _at_pos = SPIFLASHLOGGER_SECTOR_METADATA_SIZE;
+            objPos += secRemaining;
+            objRemaining -= secRemaining;
+            _atPos += secRemaining;
+            if (_atPos >= SPIFLASHLOGGER_SECTOR_SIZE) {
+                _atSec = (_atSec + 1) % _sectors;
+                _atPos = SPIFLASHLOGGER_SECTOR_METADATA_SIZE;
             }
-        } while (obj_remaining > 0);
+        } while (objRemaining > 0);
 
         _disable();
     }
 
+    // Reads objects from the logger synchronously,
+    // returning a single log object for the specified *index*.
+    //
+    // Returns:
+    // Deserialized object or null
+    //    - the most recent object when `index == -1`,
+    //    - the oldest object when `index == 1`,
+    //    - *null* when the value of *index* is greater than the number of logs,
+    //    - throws an exception when `index == 0`.
+    //
     function readSync(index = 0) {
-        // Unexpected index position
+        // Unexpected index value
         if (index == 0)
-            return null;
+            throw "Invalid argument";
 
         // identify first sector to read
         local seekTo = math.abs(index);
         local count = 0;
         local i = 0;
 
+        // _atSec - indicates the current write position, therefore
+        // for the index > 0 it is necessary to step forward (skip current sector)
+        // to find first not empty sector
+        // For the index < 0, it is possible to start couting from the current sector
         while (i < _sectors) {
             // convert sector index `i`, ordered by recency, to physical `sector`, ordered by position on disk
             local sector;
             if (index > 0) {
-                sector = (_at_sec + i + 1) % _sectors;
+                sector = (_atSec + i + 1) % _sectors;
             } else {
-                sector = (_at_sec - i + _sectors) % _sectors;
+                sector = (_atSec - i + _sectors) % _sectors;
             }
 
             ++i;
 
-            // Read all object start codes for current sector
-            local addrs_b = _getObjAddrs(sector);
+            // Read all objects start codes for current sector
+            // and write them into the blob
+            local objectsStartCodes = _getObjectsStartCodesForSector(sector);
 
-            if (addrs_b == null || addrs_b.len() == 0)
+            // If there is no start codes in the current sector
+            // then switch to the next sector
+            if (objectsStartCodes == null || objectsStartCodes.len() == 0)
                 continue;
 
             // negative step, go backwards
             if (index < 0)
-                addrs_b.seek(-2, 'e');
+                objectsStartCodes.seek(-2, 'e');
 
-            if (seekTo > addrs_b.len() / 2) {
-              seekTo -= addrs_b.len() / 2;
+            // Check that the number of start codes is enough
+            // otherwise decrease the seekTo count on a number of objects
+            // in the current sector and switch to the next sector
+            if (seekTo > objectsStartCodes.len() / 2) {
+              seekTo -= objectsStartCodes.len() / 2;
               continue;
             }
 
             // seek for an object start code
-            if (addrs_b.seek((seekTo - 1) * 2 * (index > 0 ? 1 : -1), 'c') == -1 || addrs_b.eos() == 1) {
+            if (objectsStartCodes.seek((seekTo - 1) * 2 * (index > 0 ? 1 : -1), 'c') == -1 || objectsStartCodes.eos() == 1) {
+                // This code should never happen, because
+                // the objectsStartCodes blob should have enough data
+                // for seek to the seekTo position (check at the previous if-condition)
                 server.error("Unexpected error");
                 return null;
             }
-            local addr = addrs_b.readn('w');
-            local spi_addr = _start + sector * SPIFLASHLOGGER_SECTOR_SIZE + SPIFLASHLOGGER_SECTOR_METADATA_SIZE + addr;
-            // Read the object
-            return _getObj(spi_addr);
+            // Read the object address
+            local addr = objectsStartCodes.readn('w');
+            // Get the global object address on the spiflash
+            local spiAddr = _start + sector * SPIFLASHLOGGER_SECTOR_SIZE + SPIFLASHLOGGER_SECTOR_METADATA_SIZE + addr;
+            // Read the object by address and return the de-serialized value
+            // return null in case of de-serialize object errors
+            return _getObject(spiAddr);
         } // while
 
         return null;
     }
 
+    // Synchronously returns the first object written to the log
+    // that hasn't been erased (i.e. the oldest entry on flash).
+    // If there are no logs on the flash, returns default.
     function first(defaultVal = null) {
         local data = this.readSync(1);
         return data == null ? defaultVal : data
     }
 
+    // Synchronously returns the last object written to the log
+    // that hasn't been erased (i.e. the newest entry on flash).
+    // If there are no logs on the flash, returns default.
     function last(defaultVal = null) {
         local data = this.readSync(-1);
         return data == null ? defaultVal : data
     }
+
 
     function read(onData = null, onFinish = null, step = 1, skip = 0) {
         assert(typeof step == "integer" && step != 0);
@@ -212,7 +279,7 @@ class SPIFlashLogger {
 
         // function to read one sector, optionally continuing to the next one
         local readSector;
-        local addrs_b = null;
+        local objectsStartCodes = null;
         readSector = function(i) {
 
             if (i >= _sectors){
@@ -225,14 +292,14 @@ class SPIFlashLogger {
             // convert sector index `i`, ordered by recency, to physical `sector`, ordered by position on disk
             local sector;
             if (step > 0) {
-                sector = (_at_sec + i + 1) % _sectors;
+                sector = (_atSec + i + 1) % _sectors;
             } else {
-                sector = (_at_sec - i + _sectors) % _sectors;
+                sector = (_atSec - i + _sectors) % _sectors;
             }
 
-            addrs_b = _getObjAddrs(sector);
+            objectsStartCodes = _getObjectsStartCodesForSector(sector);
 
-            if (addrs_b.len() == 0) {
+            if (objectsStartCodes.len() == 0) {
                 return imp.wakeup(0, function() {
                     readSector(i + 1);
                 }.bindenv(this))
@@ -241,19 +308,19 @@ class SPIFlashLogger {
             if (step < 0) {
                 // negative step, go backwards
                 // `skip` will take care of the magnitude of the steps
-                addrs_b.seek(-2, 'e');
+                objectsStartCodes.seek(-2, 'e');
             }
 
 
-            local addr, spi_addr, obj, readObj, cont, seekTo;
+            local addr, spiAddr, obj, readObj, cont, seekTo;
 
             // Passed in to the read callback to be called as `next`
             cont = function(keepGoing = true) {
                 if (keepGoing == false) {
                     // Clean up and exit
-                    addrs_b = obj = null;
+                    objectsStartCodes = obj = null;
                     if (onFinish != null) onFinish();
-                } else if ((addrs_b.seek(seekTo, 'c') == -1 || addrs_b.eos() == 1)) {
+                } else if ((objectsStartCodes.seek(seekTo, 'c') == -1 || objectsStartCodes.eos() == 1)) {
                     //  ^ Try to seek to the next available object
                     // If we've exhausted all addresses found in this sector, move on to the next
                     return imp.wakeup(0, function() {
@@ -271,18 +338,18 @@ class SPIFlashLogger {
                     // We are not skipping this object, reset `skipped` count
                     skipped = 0;
                     // Get the address (offset from the end of this sectors meta)
-                    addr = addrs_b.readn('w');
+                    addr = objectsStartCodes.readn('w');
                     // Calculate the raw spiflash address
-                    spi_addr = _start + sector * SPIFLASHLOGGER_SECTOR_SIZE + SPIFLASHLOGGER_SECTOR_METADATA_SIZE + addr;
+                    spiAddr = _start + sector * SPIFLASHLOGGER_SECTOR_SIZE + SPIFLASHLOGGER_SECTOR_METADATA_SIZE + addr;
                     // Read the object
-                    obj = _getObj(spi_addr);
+                    obj = _getObject(spiAddr);
 
                     // If we're moving backwards, do so, otherwise our blob cursor is
                     // already moved forward by reading
                     if (step < 0) seekTo = -4;
                     else seekTo = 0
 
-                    return onData(obj, spi_addr, cont.bindenv(this));
+                    return onData(obj, spiAddr, cont.bindenv(this));
 
                 } else {
                     // We need to skip more
@@ -306,12 +373,20 @@ class SPIFlashLogger {
     }
 
     // Erases all dirty sectors, or an individual object
+    // This method erases an object at SPIFlash address address by marking it erased.
+    // If address is not specified, it behaves as eraseAll() method with the default parameter.
     function erase(addr = null) {
         if (addr == null) return eraseAll();
         else return _eraseObject(addr);
     }
 
-    // Hard erase all sectors
+    // Erases the entire allocated SPIFlash area.
+    // The optional force parameter is a Boolean value which defaults to false,
+    // a value which will cause the method to erase only the sectors
+    // written to by this library. You must pass in true
+    // if you wish to erase the entire allocated SPIFlash area.
+    // Parametes:
+    //    force - force all sectors erase, otherwise only dirty
     function eraseAll(force = false) {
         for (local sector = 0; sector < _sectors; sector++) {
             if (force || _map[sector] == SPIFLASHLOGGER_SECTOR_DIRTY) {
@@ -320,11 +395,23 @@ class SPIFlashLogger {
         }
     }
 
+    //
+    // This method returns the current SPI flash pointer,
+    // ie. where the SPIFlashLogger will perform the next write operation.
+    // This information can be used along with the setPosition()
+    // method to optimize SPIFlash memory usage between deep sleeps.
+    //
     function getPosition() {
         // Return the current pointer (sector + offset)
-        return _at_sec * SPIFLASHLOGGER_SECTOR_SIZE + _at_pos;
+        return _atSec * SPIFLASHLOGGER_SECTOR_SIZE + _atPos;
     }
 
+    //
+    // This method sets the current SPI flash pointer,
+    // ie. where the SPIFlashLogger will perform the next read/write operation.
+    // Setting the pointer can help optimize SPI flash memory usage
+    // between deep sleeps, as it allows the SPIFlashLogger to be precise
+    // to one byte rather 256 bytes (the size of a chunk).
     function setPosition(position) {
         // Grab the sector and offset from the position
         local sector = position / SPIFLASHLOGGER_SECTOR_SIZE;
@@ -334,10 +421,13 @@ class SPIFlashLogger {
         if (sector < 0 || sector >= _sectors) throw "Position out of range";
 
         // Set the current sector and position
-        _at_sec = sector;
-        _at_pos = offset;
+        _atSec = sector;
+        _atPos = offset;
     }
 
+    //
+    // Enable flash lock
+    //
     function _enable() {
         // Check _enables then increment
         if (_enables == 0) {
@@ -347,6 +437,9 @@ class SPIFlashLogger {
         _enables += 1;
     }
 
+    //
+    // Disable flash lock
+    //
     function _disable() {
         // Decrement _enables then check
         _enables -= 1;
@@ -356,14 +449,19 @@ class SPIFlashLogger {
         }
     }
 
+    //
+    // Increase sector id and check id overflow
+    //
     function _getNextSectorId() {
-        if (_next_sec_id == 0x7FFFFFFF || _next_sec_id == 0)
-            _next_sec_id = 1;
-        return _next_sec_id++;
+        if (_nextSectorId == 0x7FFFFFFF || _nextSectorId == 0)
+            _nextSectorId = 1;
+        return _nextSectorId++;
     }
 
+    //
     // Gets the logged object at the specified position
-    function _getObj(pos, cb = null) {
+    //
+    function _getObject(pos, cb = null) {
         local requested_pos = pos;
 
         _enable();
@@ -424,8 +522,10 @@ class SPIFlashLogger {
         else return obj;
     }
 
-    // Returns a blob of 16 bit address of starts of objects, relative to sector body start
-    function _getObjAddrs(sector_idx) {
+    // Returns a blob of 16 bit address of starts of objects,
+    // relative to sector body start
+    //
+    function _getObjectsStartCodesForSector(sector_idx) {
         local from = 0,        // index to search form
               addrs = blob(),  // addresses of starts of objects
               found;
@@ -433,14 +533,14 @@ class SPIFlashLogger {
         // Sector clean
         if (_map[sector_idx] != SPIFLASHLOGGER_SECTOR_DIRTY) return addrs;
 
-        local data_start = _start + sector_idx * SPIFLASHLOGGER_SECTOR_SIZE + SPIFLASHLOGGER_SECTOR_METADATA_SIZE;
+        local dataStart = _start + sector_idx * SPIFLASHLOGGER_SECTOR_SIZE + SPIFLASHLOGGER_SECTOR_METADATA_SIZE;
         local readLength = SPIFLASHLOGGER_SECTOR_BODY_SIZE;
         _enable();
-        local sector_data = _flash.read(data_start, readLength).tostring();
+        local sectorData = _flash.read(dataStart, readLength).tostring();
         _disable();
-        if (sector_data == null) return addrs;
+        if (sectorData == null) return addrs;
 
-        while ((found = sector_data.find(SPIFLASHLOGGER_OBJECT_MARKER, from)) != null) {
+        while ((found = sectorData.find(SPIFLASHLOGGER_OBJECT_MARKER, from)) != null) {
             // Found an object start, save the address
             addrs.writen(found, 'w');
             // Skip the one we just found the next time around
@@ -451,7 +551,10 @@ class SPIFlashLogger {
         return addrs;
     }
 
-    function _write(object, sector, pos, object_pos = 0, len = null) {
+    //
+    // Write full object or object part
+    //
+    function _write(object, sector, pos, objectPos = 0, len = null) {
         if (len == null) len = object.len();
 
         // Prepare the new metadata
@@ -474,27 +577,27 @@ class SPIFlashLogger {
         }
 
         // Write the new usage map, changing only the bit in this write
-        local chunk_map = 0xFFFF;
-        local bit_start = math.floor(1.0 * pos / SPIFLASHLOGGER_CHUNK_SIZE).tointeger();
-        local bit_finish = math.ceil(1.0 * (pos+len) / SPIFLASHLOGGER_CHUNK_SIZE).tointeger();
-        for (local bit = bit_start; bit < bit_finish; bit++) {
+        local chunkMap = 0xFFFF;
+        local bitStart = math.floor(1.0 * pos / SPIFLASHLOGGER_CHUNK_SIZE).tointeger();
+        local bitFinish = math.ceil(1.0 * (pos+len) / SPIFLASHLOGGER_CHUNK_SIZE).tointeger();
+        for (local bit = bitStart; bit < bitFinish; bit++) {
             local mod = 1 << bit;
-            chunk_map = chunk_map ^ mod;
+            chunkMap = chunkMap ^ mod;
         }
-        meta.writen(chunk_map, 'w');
+        meta.writen(chunkMap, 'w');
 
         // Write the metadata and the data
         local start = _start + (sector * SPIFLASHLOGGER_SECTOR_SIZE);
         _enable();
         _flash.write(start, meta, SPIFLASH_POSTVERIFY);
-        local res = _flash.write(start + pos, object, SPIFLASH_POSTVERIFY, object_pos, object_pos+len);
+        local res = _flash.write(start + pos, object, SPIFLASH_POSTVERIFY, objectPos, objectPos + len);
         _disable();
 
         if (res != 0) {
-            throw format("Writing failed from object position %d of %d, to 0x%06x (meta), 0x%06x (body)", object_pos, len, start, start + pos)
+            throw format("Writing failed from object position %d of %d, to 0x%06x (meta), 0x%06x (body)", objectPos, len, start, start + pos)
             return null;
         } else {
-            // server.log(format("Written to: 0x%06x (meta), 0x%06x (body) of: %d", start, start + pos, object_pos));
+            // server.log(format("Written to: 0x%06x (meta), 0x%06x (body) of: %d", start, start + pos, objectPos));
         }
 
         return len;
@@ -526,6 +629,9 @@ class SPIFlashLogger {
 
     }
 
+    //
+    // Read sector metadata
+    //
     function _getSectorMetadata(sector) {
         // NOTE: Should we skip clean sectors automatically?
         _enable();
@@ -538,6 +644,9 @@ class SPIFlashLogger {
         return { "id": meta.readn('i'), "map": meta.readn('w') };
     }
 
+    //
+    // Count the number of dirty chunks in sector
+    //
     function _dirtyChunkCount(sector) {
         local map = _getSectorMetadata(sector).map;
         local count, mask;
@@ -548,9 +657,12 @@ class SPIFlashLogger {
         return count+1;// TODO: why was this plus one necessary?
     }
 
+    //
+    // Initialise logger in scope of the provided logger addresses
+    //
     function _init() {
-        local first_sec = {"id" : 0, "sec" : 0, "map": 0xFFFF}; // The smallest id
-        local last_sec = {"id" : 0, "sec" : 0, "map": 0xFFFF};// The highest id
+        local firstSector = {"id" : 0, "sec" : 0, "map": 0xFFFF}; // The smallest id
+        local lastSector = {"id" : 0, "sec" : 0, "map": 0xFFFF};// The highest id
         // Read all the metadata
         _enable();
         for (local sector = 0; sector < _sectors; sector++) {
@@ -559,16 +671,16 @@ class SPIFlashLogger {
 
             if (meta.id > 0) {
                 // identify last sector
-                if (meta.id > last_sec.id) {
-                    last_sec.sec = sector;
-                    last_sec.id = meta.id;
-                    last_sec.map = meta.map;
+                if (meta.id > lastSector.id) {
+                    lastSector.sec = sector;
+                    lastSector.id = meta.id;
+                    lastSector.map = meta.map;
                 }
                 // identify first sector
-                if (first_sec.id == 0 || meta.id < first_sec.id) {
-                    first_sec.sec = sector;
-                    first_sec.id = meta.id;
-                    first_sec.map = meta.map;
+                if (firstSector.id == 0 || meta.id < firstSector.id) {
+                    firstSector.sec = sector;
+                    firstSector.id = meta.id;
+                    firstSector.map = meta.map;
                 }
             } else {
                 // This sector has no id, we are going to assume it is clean
@@ -578,34 +690,37 @@ class SPIFlashLogger {
         _disable();
 
         // handle ID overflow use-case
-        if (last_sec.id - first_sec.id >= (0xFFFF - _sectors))
-            last_sec = first_sec;
+        if (lastSector.id - firstSector.id >= (0xFFFF - _sectors))
+            lastSector = firstSector;
 
-        _at_pos = 0;
-        _at_sec = last_sec.sec;
-        _next_sec_id = last_sec.id;
+        _atPos = 0;
+        _atSec = lastSector.sec;
+        _nextSectorId = lastSector.id;
         // increase sector id
         _getNextSectorId();
         for (local bit = 1; bit <= 16; bit++) {
             local mod = 1 << bit;
-            _at_pos += (~last_sec.map & mod) ? SPIFLASHLOGGER_CHUNK_SIZE : 0;
+            _atPos += (~lastSector.map & mod) ? SPIFLASHLOGGER_CHUNK_SIZE : 0;
         }
     }
 
-    function _erase(start_sector = null, end_sector = null, preparing = false) {
-        if (start_sector == null) {
-            start_sector = 0;
-            end_sector = _sectors;
+    //
+    //  Erase sector part
+    //
+    function _erase(startSector = null, endSector = null, preparing = false) {
+        if (startSector == null) {
+            startSector = 0;
+            endSector = _sectors;
         }
 
-        if (end_sector == null) {
-            end_sector = start_sector + 1;
+        if (endSector == null) {
+            endSector = startSector + 1;
         }
 
-        if (start_sector < 0 || end_sector > _sectors) throw "Invalid format request";
+        if (startSector < 0 || endSector > _sectors) throw "Invalid format request";
 
         _enable();
-        for (local sector = start_sector; sector < end_sector; sector++) {
+        for (local sector = startSector; sector < endSector; sector++) {
             // Erase the requested sector
             _flash.erasesector(_start + (sector * SPIFLASHLOGGER_SECTOR_SIZE));
             // server.log(format("Erasing: %d (0x%04x)", sector, _start + (sector * SPIFLASHLOGGER_SECTOR_SIZE)));
@@ -614,9 +729,9 @@ class SPIFlashLogger {
             _map[sector] = SPIFLASHLOGGER_SECTOR_CLEAN;
 
             // Move the pointer on to the next sector
-            if (!preparing && sector == _at_sec) {
-                _at_sec = (_at_sec + 1) % _sectors;
-                _at_pos = SPIFLASHLOGGER_SECTOR_METADATA_SIZE;
+            if (!preparing && sector == _atSec) {
+                _atSec = (_atSec + 1) % _sectors;
+                _atPos = SPIFLASHLOGGER_SECTOR_METADATA_SIZE;
             }
         }
         _disable();

@@ -42,18 +42,17 @@ class SectorIdOverflowTestCase extends Core {
                 local end     = start + sectors;
                 local logger  = SPIFlashLogger(start * SPIFLASHLOGGER_SECTOR_SIZE, end * SPIFLASHLOGGER_SECTOR_SIZE);
                 logger.eraseAll(true);
-                logger._next_sec_id = 0x7FFFFFFE;
+                logger._nextSectorId = 0x7FFFFFFE;
 
-                for (local i = 0; i < 400; i++) {
+                for (local i = 0; i < 400; i++)
                     logger.write(i);
-                }
 
-                assertTrue(logger._next_sec_id < sectors, "Failed to handle next sector id overflow");
+                assertTrue(logger._nextSectorId < sectors, "Failed to handle next sector id overflow");
                 local logger2  = SPIFlashLogger(start * SPIFLASHLOGGER_SECTOR_SIZE, end * SPIFLASHLOGGER_SECTOR_SIZE);
                 // Check the position correctly recovered
                 assertTrue(logger2.getPosition() - logger.getPosition() >= 0, "Wrong position recovery in case of overflow.");
                 // Check an internal counter recovery
-                assertEqual(logger2._next_sec_id, logger._next_sec_id, "Wrong sector id after recovery");
+                assertEqual(logger2._nextSectorId, logger._nextSectorId, "Wrong sector id after recovery");
                 resolve();
             } catch (ex) {
                 reject("Unexpected error: " + ex);

@@ -74,7 +74,7 @@ The *dimensions()* method returns a table with the following keys, each of which
 | *start* | The first byte used by the logger |
 | *end* | The last byte used by the logger |
 | *sectors* | The number of sectors allocated to the logger |
-| *sector_size* | The size of sectors in bytes |
+| *sectorSize* | The size of sectors in bytes |
 
 ### write(*object*)
 
