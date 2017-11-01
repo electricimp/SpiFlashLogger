@@ -116,7 +116,7 @@ class SPIFlashLogger {
 
     // This method returns a table with the following keys,
     // each of which gives access to an integer value:
-    //   size	   - The size of the SPIFlash in bytes
+    //   size    - The size of the SPIFlash in bytes
     //   len     - The number of bytes allocated to the logger
     //   start   - The first byte used by the logger
     //   end     - The last byte used by the logger
@@ -269,7 +269,30 @@ class SPIFlashLogger {
         return data == null ? defaultVal : data
     }
 
-
+    // Reads objects from the logger asynchronously.
+    //
+    // This mehanism is intended for the asynchronous processing of each log object,
+    // such as sending data to the agent and waiting for an acknowledgement.
+    //
+    // Parameters:
+    //
+    // onData   - Callback that provides the object which has been read
+    //            from the logger
+    //
+    // onFinish - Callback that is called after the last object is provided
+    //            (i.e. there are no more objects to return by the current read operation),
+    //            or when the operation it terminated,
+    //            or in case of an error The callback has no parameters.
+    //
+    // step     - The rate at which the read operation steps through the logged
+    //            objects. Must not be 0. If it has a positive value the read
+    //            operation starts from the oldest logged object.
+    //            If it has a negative value, the read operation starts from the
+    //            most recently written object and steps backwards. Defaule value: 1
+    //
+    // skip     - Skips the specified number of the logged objects at the start of
+    //            the reading. Must not has a negative value. Default value: 0
+    //
     function read(onData = null, onFinish = null, step = 1, skip = 0) {
         assert(typeof step == "integer" && step != 0);
 
