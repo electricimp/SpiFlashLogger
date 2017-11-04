@@ -47,7 +47,7 @@ class ErasureTestCase extends Core {
             local expected = 0;
             logger.read(function(data, addr, next) {
                 try {
-                    assertDeepEqualWrap(++expected, data, "Wrong data");
+                    assertEqualWrap(++expected, data, "Wrong data");
                     logger.erase(addr);
                     next();
                 } catch (ex) {

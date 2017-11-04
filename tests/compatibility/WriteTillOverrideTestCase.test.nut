@@ -38,9 +38,10 @@ class WriteTillOverrideTestCase extends Core {
                     return;
                 }
                 local start = 0;
-                local end = (start + 1) * SPIFLASHLOGGER_SECTOR_SIZE;
-                local logger = SPIFlashLogger(start, end, false, Serializer);
-                logger.erase();
+                local end = SPIFLASHLOGGER_SECTOR_SIZE;
+                // one sector logger
+                local logger = SPIFlashLogger(start, end, null, Serializer);
+                logger.eraseAll(true);
                 local message = 1;
                 local messageDifferent = 2;
                 local messagesPerSector = SPIFLASHLOGGER_SECTOR_SIZE / Serializer.sizeof(message, SPIFLASHLOGGER_OBJECT_MARKER);
@@ -55,7 +56,7 @@ class WriteTillOverrideTestCase extends Core {
                 logger.read(function(data, addr, next) {
                     hasData = true;
                     try {
-                        assertDeepEqualWrap(messageDifferent, data, "Wrong data");
+                        assertEqualWrap(messageDifferent, data, "Wrong data");
                         resolve();
                     } catch (ex) {
                         reject(ex);

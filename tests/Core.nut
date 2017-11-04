@@ -36,10 +36,9 @@ class Core extends ImpTestCase {
         return available;
     }
 
-    function assertDeepEqualWrap(expected, actual, message = null, annotate = true) {
+    function assertEqualWrap(expected, actual, message = null, annotate = true) {
         if (annotate) {
-            local annotateString = "Type: " + typeof actual + ". " +
-                                   "Expected: '" + expected + "'. " +
+            local annotateString = "Expected: '" + expected + "'. " +
                                    "Actual: '" + actual + "'.";
             if (message == null) {
                 message = annotateString;
@@ -47,6 +46,6 @@ class Core extends ImpTestCase {
                 message = message + ". " + annotateString;
             }
         }
-        assertDeepEqual(expected, actual, message);
+        assertEqual(expected, actual, message);
     }
 }

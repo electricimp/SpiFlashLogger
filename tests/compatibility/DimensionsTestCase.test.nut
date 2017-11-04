@@ -43,10 +43,10 @@ class DimensionsTestCase extends Core {
                 local logger = SPIFlashLogger();
                 local dimensions = logger.dimensions();
                 try {
-                    assertDeepEqualWrap(0, dimensions.start, "dimensions.start");
-                    assertDeepEqualWrap(size, dimensions.end, "dimensions.end");
-                    assertDeepEqualWrap(size, dimensions.len, "dimensions.len");
-                    assertDeepEqualWrap(size, dimensions.size, "dimensions.size");
+                    assertEqualWrap(0, dimensions.start, "dimensions.start");
+                    assertEqualWrap(size, dimensions.end, "dimensions.end");
+                    assertEqualWrap(size, dimensions.len, "dimensions.len");
+                    assertEqualWrap(size, dimensions.size, "dimensions.size");
                 } catch (ex) {
                     reject(ex);
                 }
@@ -72,10 +72,10 @@ class DimensionsTestCase extends Core {
                 local logger = SPIFlashLogger(start);
                 local dimensions = logger.dimensions();
                 try {
-                    assertDeepEqualWrap(start, dimensions.start, "dimensions.start");
-                    assertDeepEqualWrap(size, dimensions.end, "dimensions.end");
-                    assertDeepEqualWrap(size - start, dimensions.len, "dimensions.len");
-                    assertDeepEqualWrap(size, dimensions.size, "dimensions.size");
+                    assertEqualWrap(start, dimensions.start, "dimensions.start");
+                    assertEqualWrap(size, dimensions.end, "dimensions.end");
+                    assertEqualWrap(size - start, dimensions.len, "dimensions.len");
+                    assertEqualWrap(size, dimensions.size, "dimensions.size");
                 } catch (ex) {
                     reject(ex);
                     return;
@@ -101,10 +101,10 @@ class DimensionsTestCase extends Core {
                 local logger = SPIFlashLogger(null, end);
                 local dimensions = logger.dimensions();
                 try {
-                    assertDeepEqualWrap(0, dimensions.start, "dimensions.start");
-                    assertDeepEqualWrap(end, dimensions.end, "dimensions.end");
-                    assertDeepEqualWrap(end, dimensions.len, "dimensions.len");
-                    assertDeepEqualWrap(size, dimensions.size, "dimensions.size");
+                    assertEqualWrap(0, dimensions.start, "dimensions.start");
+                    assertEqualWrap(end, dimensions.end, "dimensions.end");
+                    assertEqualWrap(end, dimensions.len, "dimensions.len");
+                    assertEqualWrap(size, dimensions.size, "dimensions.size");
                 } catch (ex) {
                     reject(ex);
                     return;
@@ -131,10 +131,10 @@ class DimensionsTestCase extends Core {
                 local logger = SPIFlashLogger(start, end);
                 local dimensions = logger.dimensions();
                 try {
-                    assertDeepEqualWrap(start, dimensions.start, "dimensions.start");
-                    assertDeepEqualWrap(end, dimensions.end, "dimensions.end");
-                    assertDeepEqualWrap(end - start, dimensions.len, "dimensions.len");
-                    assertDeepEqualWrap(size, dimensions.size, "dimensions.size");
+                    assertEqualWrap(start, dimensions.start, "dimensions.start");
+                    assertEqualWrap(end, dimensions.end, "dimensions.end");
+                    assertEqualWrap(end - start, dimensions.len, "dimensions.len");
+                    assertEqualWrap(size, dimensions.size, "dimensions.size");
                 } catch (ex) {
                     reject(ex);
                     return;

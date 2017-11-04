@@ -48,7 +48,7 @@ class ManagePositionTestCase extends Core {
                 length += Serializer.sizeof(i, SPIFLASHLOGGER_OBJECT_MARKER);
             }
             try {
-                assertDeepEqualWrap(length, logger.getPosition(), "Wrong getPosition() value");
+                assertEqualWrap(length, logger.getPosition(), "Wrong getPosition() value");
             } catch (ex) {
                 reject(ex);
                 return;
@@ -65,7 +65,7 @@ class ManagePositionTestCase extends Core {
             loggerNew.read(function(data, addr, next) {
                 try {
                     if (data >= overrideTo) throw "Read value more than '" + overrideTo + "'";
-                    assertDeepEqualWrap(overrideFrom++, data, "Data have not been overridden");
+                    assertEqualWrap(overrideFrom++, data, "Data have not been overridden");
                     next();
                 } catch (ex) {
                     reject(ex);

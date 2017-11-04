@@ -32,7 +32,7 @@ class SyncOperationsTestCase extends Core {
 
     logger = null;
     _postfix = " - 09876543210987654321098765432109876543210987654321";
-    _max_sector_logs = 62;
+    _maxLogsInSector = 62;
 
     function setUp() {
         return Promise(function(resolve, reject) {
@@ -42,14 +42,13 @@ class SyncOperationsTestCase extends Core {
                     return;
                 }
                 local start = 0;
-                local end = start + 2;
-                start *= SPIFLASHLOGGER_SECTOR_SIZE;
-                end   *= SPIFLASHLOGGER_SECTOR_SIZE;
+                local end = 2 * SPIFLASHLOGGER_SECTOR_SIZE;
+                // Initialize 2 sectors logger
                 logger = SPIFlashLogger(start, end);
                 // Erase all data
                 logger.eraseAll(true);
-
-                for (local i = 0; i <= _max_sector_logs; i++) { // 175
+                // Write max logs to the first sector
+                for (local i = 0; i <= _maxLogsInSector; i++) {
                     logger.write(i + _postfix);
                     server.log(i);
                 }
@@ -73,25 +72,25 @@ class SyncOperationsTestCase extends Core {
         // Check first sector
         assertEqual(logger.getPosition() < logger._start + SPIFLASHLOGGER_SECTOR_SIZE, true, "Wrong logger position");
         // check reading in scope of one sector
-        _checkFirstLastAndReadSync(0, _max_sector_logs, "One sector test.");
+        _checkFirstLastAndReadSync(0, _maxLogsInSector, "One sector test.");
         // cross sector border: last object between two sectors
-        logger.write((_max_sector_logs + 1) + _postfix);
+        logger.write((_maxLogsInSector + 1) + _postfix);
         // Check that sector border was crossed
         assertEqual(logger.getPosition() > logger._start + SPIFLASHLOGGER_SECTOR_SIZE, true);
         // Check values after sector border crossing
-        _checkFirstLastAndReadSync(0, _max_sector_logs + 1, "Two sectors border test.");
+        _checkFirstLastAndReadSync(0, _maxLogsInSector + 1, "Two sectors border test.");
         // cross sector border
-        logger.write((_max_sector_logs + 2) + _postfix);
+        logger.write((_maxLogsInSector + 2) + _postfix);
         // last object in the second sector
-        _checkFirstLastAndReadSync(0, _max_sector_logs + 2, "Two sectors test.");
+        _checkFirstLastAndReadSync(0, _maxLogsInSector + 2, "Two sectors test.");
         // rewrite first sector
-        for (local i = 3; i <= _max_sector_logs + 10; i++) {
-            logger.write((_max_sector_logs + i) + _postfix);
+        for (local i = 3; i <= _maxLogsInSector + 10; i++) {
+            logger.write((_maxLogsInSector + i) + _postfix);
         }
         // Check first sector position
         assertEqual(logger.getPosition() < logger._start + SPIFLASHLOGGER_SECTOR_SIZE, true);
         // Test values
-        _checkFirstLastAndReadSync(_max_sector_logs + 1,
-            2*_max_sector_logs + 10, "Sector overwrite test.");
+        _checkFirstLastAndReadSync(_maxLogsInSector + 1,
+            2 * _maxLogsInSector + 10, "Sector overwrite test.");
     }
 }

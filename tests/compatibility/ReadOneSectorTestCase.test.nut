@@ -64,7 +64,7 @@ class ReadOneSectorTestCase extends Core {
             local expected = 5;
             logger.read(function(data, addr, next) {
                 try {
-                    assertDeepEqualWrap(expected--, data, "Wrong data");
+                    assertEqualWrap(expected--, data, "Wrong data");
                     if (expected == 0) {
                         resolve();
                         next(false);
@@ -87,7 +87,7 @@ class ReadOneSectorTestCase extends Core {
             local expected = 5;
             logger.read(function(data, addr, next) {
                 try {
-                    assertDeepEqualWrap(expected, data, "Wrong data");
+                    assertEqualWrap(expected, data, "Wrong data");
                     expected -= 2;
                     if (expected < 0) {
                         resolve();
@@ -111,7 +111,7 @@ class ReadOneSectorTestCase extends Core {
             local expected = 4;
             logger.read(function(data, addr, next) {
                 try {
-                    assertDeepEqualWrap(expected, data, "Wrong data");
+                    assertEqualWrap(expected, data, "Wrong data");
                     expected -= 2;
                     if (expected < 0) {
                         resolve();
@@ -135,7 +135,7 @@ class ReadOneSectorTestCase extends Core {
             local expected = 5;
             logger.read(function(data, addr, next) {
                 try {
-                    assertDeepEqualWrap(expected, data, "Wrong data");
+                    assertEqualWrap(expected, data, "Wrong data");
                     expected -= 3;
                     if (expected < 0) {
                         resolve();
@@ -159,7 +159,7 @@ class ReadOneSectorTestCase extends Core {
             local expected = 1;
             logger.read(function(data, addr, next) {
                 try {
-                    assertDeepEqualWrap(expected++, data, "Wrong data");
+                    assertEqualWrap(expected++, data, "Wrong data");
                     next();
                 } catch (ex) {
                     reject(ex);
@@ -178,7 +178,7 @@ class ReadOneSectorTestCase extends Core {
             local expected = 1;
             logger.read(function(data, addr, next) {
                 try {
-                    assertDeepEqualWrap(expected, data, "Wrong data");
+                    assertEqualWrap(expected, data, "Wrong data");
                     expected += 2;
                     next();
                 } catch (ex) {
@@ -198,7 +198,7 @@ class ReadOneSectorTestCase extends Core {
             local expected = 1;
             logger.read(function(data, addr, next) {
                 try {
-                    assertDeepEqualWrap(expected, data, "Wrong data");
+                    assertEqualWrap(expected, data, "Wrong data");
                     next(false);
                 } catch (ex) {
                     reject(ex);
@@ -217,7 +217,7 @@ class ReadOneSectorTestCase extends Core {
             local expected = 2;
             logger.read(function(data, addr, next) {
                 try {
-                    assertDeepEqualWrap(expected, data, "Wrong data");
+                    assertEqualWrap(expected, data, "Wrong data");
                     expected += 2;
                     next();
                 } catch (ex) {

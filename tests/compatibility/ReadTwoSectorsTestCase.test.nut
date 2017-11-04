@@ -64,7 +64,7 @@ class ReadTwoSectorsTestCase extends Core {
             local expected = 0;
             logger.read(function(data, addr, next) {
                 try {
-                    assertDeepEqualWrap(expected, data, "Wrong data");
+                    assertEqualWrap(expected, data, "Wrong data");
                     expected += 1;
                     next();
                 } catch (ex) {
@@ -84,7 +84,7 @@ class ReadTwoSectorsTestCase extends Core {
             local expected = 0;
             logger.read(function(data, addr, next) {
                 try {
-                    assertDeepEqualWrap(expected, data, "Wrong data");
+                    assertEqualWrap(expected, data, "Wrong data");
                     expected += 2;
                     next();
                 } catch (ex) {
@@ -104,7 +104,7 @@ class ReadTwoSectorsTestCase extends Core {
             local expected = 499;
             logger.read(function(data, addr, next) {
                 try {
-                    assertDeepEqualWrap(expected, data, "Wrong data");
+                    assertEqualWrap(expected, data, "Wrong data");
                     expected -= 1;
                     next();
                 } catch (ex) {
