@@ -81,8 +81,9 @@ class ConstructorTestCase extends Core {
 
   // this test is similar to the previous one
   // but with one major difference that
-  // first logger write down data into the second sector
-  // but startcode of the last payload is located in
+  // logger fullfill first sector and
+  // write down the last object into the second sector
+  // but startcode of the last object is located in
   // the first sector
   function testConstructorRecoveryWithSecondSector() {
       local start = 0;

@@ -187,7 +187,7 @@ class SPIFlashLogger {
     //    - *null* when the value of *index* is greater than the number of logs,
     //    - throws an exception when `index == 0`.
     //
-    function readSync(index = 0) {
+    function readSync(index) {
         // Unexpected index value
         if (index == 0)
             throw "Invalid argument";
@@ -197,7 +197,7 @@ class SPIFlashLogger {
         local count = 0;
         local i = 0;
 
-        // _atSec - indicates the current write position, therefore
+        // _atSec - indicates the current write sector, therefore
         // for the index > 0 it is necessary to step forward (skip current sector)
         // to find first not empty sector
         // For the index < 0, it is possible to start couting from the current sector
@@ -476,7 +476,7 @@ class SPIFlashLogger {
     // Increase sector id and check id overflow
     //
     function _getNextSectorId() {
-        if (_nextSectorId == 0x7FFFFFFF || _nextSectorId == 0)
+        if (_nextSectorId =< 0)
             _nextSectorId = 1;
         return _nextSectorId++;
     }
@@ -694,17 +694,12 @@ class SPIFlashLogger {
 
             if (meta.id > 0) {
                 // identify last sector
-                if (meta.id > lastSector.id) {
-                    lastSector.sec = sector;
-                    lastSector.id = meta.id;
-                    lastSector.map = meta.map;
-                }
+                if (meta.id > lastSector.id)
+                    lastSector = {"id" : meta.id, "sec" : sector, "map": meta.map};
                 // identify first sector
-                if (firstSector.id == 0 || meta.id < firstSector.id) {
-                    firstSector.sec = sector;
-                    firstSector.id = meta.id;
-                    firstSector.map = meta.map;
-                }
+                if (firstSector.id == 0 || meta.id < firstSector.id)
+                    firstSector = {"id" : meta.id, "sec" : sector, "map": meta.map};
+
             } else {
                 // This sector has no id, we are going to assume it is clean
                 _map[sector] = SPIFLASHLOGGER_SECTOR_CLEAN;
@@ -713,7 +708,7 @@ class SPIFlashLogger {
         _disable();
 
         // handle ID overflow use-case
-        if (lastSector.id - firstSector.id >= (0xFFFF - _sectors))
+        if (lastSector.id - firstSector.id >= (0x7FFFFFFF - _sectors))
             lastSector = firstSector;
 
         _atPos = 0;
