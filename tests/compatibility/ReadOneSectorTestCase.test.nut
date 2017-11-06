@@ -227,5 +227,4 @@ class ReadOneSectorTestCase extends Core {
             }.bindenv(this), resolve, 2, 1);
         }.bindenv(this));
     }
-
 };

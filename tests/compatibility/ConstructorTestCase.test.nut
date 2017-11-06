@@ -30,7 +30,18 @@
 // Tests for SPIFlashLogger.dimensions()
 class ConstructorTestCase extends Core {
   _postfix = " - 09876543210987654321098765432109876543210987654321";
-  _maxLogsInSector = 62; // Max logs which could fit in one sector
+  _counterShift = 100;  // this shift allow us to have fixed size of objects on write
+  _maxLogsInSector = 0; // The maximu logs
+
+  function setUp() {
+    // Calculate the max count of the test-logs which could fit in one sector
+    // Test log consists of  index + postfix, but index was shift on _counterShift
+    // to have fixed size of the serialised object
+    // In the current implementaion: objSize == 66 bytes and maxLogsInSector = 61
+    // and sector has 61*66 = 4026 (+ 6 bytes - sector start code)
+    local objSize = Serializer.sizeof((_counterShift + _postfix), SPIFLASHLOGGER_OBJECT_MARKER);
+    _maxLogsInSector = (SPIFLASHLOGGER_SECTOR_SIZE - SPIFLASHLOGGER_SECTOR_METADATA_SIZE)/ objSize;
+  }
 
   // Test the logger recovery scenarious
   // It should be possible to recover the writing position
@@ -51,15 +62,20 @@ class ConstructorTestCase extends Core {
       local logger = SPIFlashLogger(start, end);
       // Clear all previous data
       logger.eraseAll(true);
+
+      local lastObject = null;
       // Fill first sector with maximium objects
-      for (local i = 0; i <= _maxLogsInSector; i++) {
-          logger.write(i + _postfix);
+      for (local i = 1; i <= _maxLogsInSector; i++) {
+          logger.write((_counterShift + i) + _postfix);
+          if (i == _maxLogsInSector)
+              lastObject = (_counterShift + i) + _postfix;
       }
 
       // Save curren position and free current
       // logger to initialize a new one
       local position = logger.getPosition();
       logger = null;
+      assertTrue(position <= SPIFLASHLOGGER_SECTOR_SIZE, "Filled more than one sector");
       // Initialize another logger on the same sectors
       // to check position recovery process on logger initialization
       local logger2 = SPIFlashLogger(start, end);
@@ -68,15 +84,17 @@ class ConstructorTestCase extends Core {
       // Check position after recovery (it should be chunk rounded)
       assertEqual(logger2.getPosition() - position < SPIFLASHLOGGER_CHUNK_SIZE,
           true, "Wrong position.");
-      assertEqual(_maxLogsInSector + _postfix, logger2.last(), "Failed to read data after recovery");
+      // prefix was shifted on 100
+      // iteration was starte from 0
+      assertDeepEqual(lastObject, logger2.last(), "Failed to read data after recovery");
 
       // Check writing data after recovery
-      local testObj = "Some comment in a new position";
-      logger2.write(testObj);
+      local testObject = "Some comment in a new position";
+      logger2.write(testObject);
       // Check that it is possible to keep on writing after recovery
-      assertEqual(testObj, logger2.last(), "Failed to write after recovery");
+      assertEqual(testObject, logger2.last(), "Failed to write after recovery");
       // Check sync read from the previous sector
-      assertEqual(_maxLogsInSector + _postfix, logger2.readSync(-2), "Failed to read data after recovery");
+      assertEqual(lastObject, logger2.readSync(-2), "Failed to read data after recovery");
   }
 
   // this test is similar to the previous one
@@ -94,12 +112,15 @@ class ConstructorTestCase extends Core {
       // Fill first logger sector with objects
       // and write one more log to allocate next sector
       // for writing
-      for (local i = 0; i <= _maxLogsInSector + 1; i++) {
-          logger.write(i + _postfix);
+      local logObject;
+      for (local i = 1; i <= _maxLogsInSector + 1; i++) {
+          logObject = (_counterShift + i) + _postfix;
+          logger.write(logObject);
       }
       // Save posisiton and free logger
       local position = logger.getPosition();
       logger = null;
+      assertTrue(position > SPIFLASHLOGGER_SECTOR_SIZE, "Invalid precondition for test");
       // Initialize a new logger instance
       local logger2 = SPIFlashLogger(start, end);
       // Check position after recovery (it should be chunk rounded)
@@ -107,7 +128,7 @@ class ConstructorTestCase extends Core {
           "Wrong recovery position");
       assertTrue(logger2.getPosition() - position < SPIFLASHLOGGER_CHUNK_SIZE,
           "Wrong position.");
-      assertEqual((_maxLogsInSector + 1) + _postfix, logger2.last(),
+      assertEqual(logObject, logger2.last(),
           "Failed to read data after recovery");
 
       // Check writing data after recovery
@@ -117,7 +138,7 @@ class ConstructorTestCase extends Core {
       // after logger re-init
       assertEqual(testObj, logger2.last(), "Failed to write after recovery");
       // Check sync read from the previous sector
-      assertEqual((_maxLogsInSector + 1) + _postfix, logger2.readSync(-2),
+      assertEqual(logObject, logger2.readSync(-2),
           "Failed to read data after recovery");
   }
 }

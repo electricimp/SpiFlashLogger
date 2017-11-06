@@ -44,7 +44,8 @@ class WriteTillOverrideTestCase extends Core {
                 logger.eraseAll(true);
                 local message = 1;
                 local messageDifferent = 2;
-                local messagesPerSector = SPIFLASHLOGGER_SECTOR_SIZE / Serializer.sizeof(message, SPIFLASHLOGGER_OBJECT_MARKER);
+                local messagesPerSector =
+                     (SPIFLASHLOGGER_SECTOR_SIZE - SPIFLASHLOGGER_SECTOR_METADATA_SIZE) / Serializer.sizeof(message, SPIFLASHLOGGER_OBJECT_MARKER);
                 for (local i = 0; i < messagesPerSector + 1; i++) {
                     if (i < messagesPerSector) {
                         logger.write(message);

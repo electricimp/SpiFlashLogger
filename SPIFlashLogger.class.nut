@@ -159,6 +159,12 @@ class SPIFlashLogger {
                 _atSec = (_atSec + 1) % _sectors;
                 _atPos = SPIFLASHLOGGER_SECTOR_METADATA_SIZE;
             }
+            // Handle overflow use-case for a one-sector logger
+            else if (_sectors == 1 && objPos == 0 && objRemaining > secRemaining) {
+                eraseAll(true);
+                _atPos = SPIFLASHLOGGER_SECTOR_METADATA_SIZE;
+                secRemaining = objRemaining;
+            }
 
             // Now write the data
             _write(obj, _atSec, _atPos, objPos, secRemaining);
@@ -476,7 +482,7 @@ class SPIFlashLogger {
     // Increase sector id and check id overflow
     //
     function _getNextSectorId() {
-        if (_nextSectorId =< 0)
+        if (_nextSectorId <= 0)
             _nextSectorId = 1;
         return _nextSectorId++;
     }
