@@ -31,7 +31,7 @@
 class  ReadWriteSimultaneouslyTestCase extends Core {
 
 
-      logger = null;
+      _logger = null;
 
       function setUp() {
           return Promise(function(resolve, reject) {
@@ -44,10 +44,10 @@ class  ReadWriteSimultaneouslyTestCase extends Core {
                   local end = start + 2;
                   start *= SPIFLASHLOGGER_SECTOR_SIZE;
                   end   *= SPIFLASHLOGGER_SECTOR_SIZE;
-                  logger = SPIFlashLogger(start, end);
-                  logger.erase();
+                  _logger = SPIFlashLogger(start, end);
+                  _logger.erase();
                   for (local i = 0; i < 100; i++) {
-                      logger.write(i);
+                      _logger.write(i);
                   }
                   resolve();
               } catch (ex) {
@@ -71,12 +71,12 @@ class  ReadWriteSimultaneouslyTestCase extends Core {
               // READ FORWARD
               local expectedFwd = 0;
               local writeNext = 100;
-              logger.read(function(data, addr, next) {
+              _logger.read(function(data, addr, next) {
                   try {
                       assertEqualWrap(expectedFwd, data, "Wrong data");
                       expectedFwd += 2;
                       // write next object
-                      logger.write(writeNext++);
+                      _logger.write(writeNext++);
                       // try to read next object
                       next();
                   } catch (ex) {

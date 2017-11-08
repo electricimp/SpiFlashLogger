@@ -30,7 +30,7 @@
 // Tests for SPIFlashLogger.read()
 class ReadTwoSectorsTestCase extends Core {
 
-    logger = null;
+    _logger = null;
 
     function setUp() {
         return Promise(function(resolve, reject) {
@@ -43,10 +43,10 @@ class ReadTwoSectorsTestCase extends Core {
                 local end = start + 2;
                 start *= SPIFLASHLOGGER_SECTOR_SIZE;
                 end   *= SPIFLASHLOGGER_SECTOR_SIZE;
-                logger = SPIFlashLogger(start, end);
-                logger.erase();
+                _logger = SPIFlashLogger(start, end);
+                _logger.erase();
                 for (local i = 0; i < 500; i++) {
-                    logger.write(i);
+                    _logger.write(i);
                 }
                 resolve();
             } catch (ex) {
@@ -62,7 +62,7 @@ class ReadTwoSectorsTestCase extends Core {
                 return;
             }
             local expected = 0;
-            logger.read(function(data, addr, next) {
+            _logger.read(function(data, addr, next) {
                 try {
                     assertEqualWrap(expected, data, "Wrong data");
                     expected += 1;
@@ -82,7 +82,7 @@ class ReadTwoSectorsTestCase extends Core {
                 return;
             }
             local expected = 0;
-            logger.read(function(data, addr, next) {
+            _logger.read(function(data, addr, next) {
                 try {
                     assertEqualWrap(expected, data, "Wrong data");
                     expected += 2;
@@ -102,7 +102,7 @@ class ReadTwoSectorsTestCase extends Core {
                 return;
             }
             local expected = 499;
-            logger.read(function(data, addr, next) {
+            _logger.read(function(data, addr, next) {
                 try {
                     assertEqualWrap(expected, data, "Wrong data");
                     expected -= 1;

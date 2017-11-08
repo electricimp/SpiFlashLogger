@@ -30,7 +30,7 @@
 // Tests for SPIFlashLogger.read()
 class ReadOneSectorTestCase extends Core {
 
-    logger = null;
+    _logger = null;
 
     function setUp() {
         return Promise(function(resolve, reject) {
@@ -43,10 +43,10 @@ class ReadOneSectorTestCase extends Core {
                 local end = start + 1;
                 start *= SPIFLASHLOGGER_SECTOR_SIZE;
                 end   *= SPIFLASHLOGGER_SECTOR_SIZE;
-                logger = SPIFlashLogger(start, end);
-                logger.erase();
+                _logger = SPIFlashLogger(start, end);
+                _logger.erase();
                 for (local i = 1; i <= 5; i++) {
-                    logger.write(i);
+                    _logger.write(i);
                 }
                 resolve();
             } catch (ex) {
@@ -62,7 +62,7 @@ class ReadOneSectorTestCase extends Core {
                 return;
             }
             local expected = 5;
-            logger.read(function(data, addr, next) {
+            _logger.read(function(data, addr, next) {
                 try {
                     assertEqualWrap(expected--, data, "Wrong data");
                     if (expected == 0) {
@@ -85,7 +85,7 @@ class ReadOneSectorTestCase extends Core {
                 return;
             }
             local expected = 5;
-            logger.read(function(data, addr, next) {
+            _logger.read(function(data, addr, next) {
                 try {
                     assertEqualWrap(expected, data, "Wrong data");
                     expected -= 2;
@@ -109,7 +109,7 @@ class ReadOneSectorTestCase extends Core {
                 return;
             }
             local expected = 4;
-            logger.read(function(data, addr, next) {
+            _logger.read(function(data, addr, next) {
                 try {
                     assertEqualWrap(expected, data, "Wrong data");
                     expected -= 2;
@@ -133,7 +133,7 @@ class ReadOneSectorTestCase extends Core {
                 return;
             }
             local expected = 5;
-            logger.read(function(data, addr, next) {
+            _logger.read(function(data, addr, next) {
                 try {
                     assertEqualWrap(expected, data, "Wrong data");
                     expected -= 3;
@@ -157,7 +157,7 @@ class ReadOneSectorTestCase extends Core {
                 return;
             }
             local expected = 1;
-            logger.read(function(data, addr, next) {
+            _logger.read(function(data, addr, next) {
                 try {
                     assertEqualWrap(expected++, data, "Wrong data");
                     next();
@@ -176,7 +176,7 @@ class ReadOneSectorTestCase extends Core {
                 return;
             }
             local expected = 1;
-            logger.read(function(data, addr, next) {
+            _logger.read(function(data, addr, next) {
                 try {
                     assertEqualWrap(expected, data, "Wrong data");
                     expected += 2;
@@ -196,7 +196,7 @@ class ReadOneSectorTestCase extends Core {
                 return;
             }
             local expected = 1;
-            logger.read(function(data, addr, next) {
+            _logger.read(function(data, addr, next) {
                 try {
                     assertEqualWrap(expected, data, "Wrong data");
                     next(false);
@@ -215,7 +215,7 @@ class ReadOneSectorTestCase extends Core {
                 return;
             }
             local expected = 2;
-            logger.read(function(data, addr, next) {
+            _logger.read(function(data, addr, next) {
                 try {
                     assertEqualWrap(expected, data, "Wrong data");
                     expected += 2;

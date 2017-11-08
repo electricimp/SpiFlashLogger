@@ -152,19 +152,26 @@ class SPIFlashLogger {
             // How far are we from the end of the sector
             if (_atPos < SPIFLASHLOGGER_SECTOR_METADATA_SIZE) _atPos = SPIFLASHLOGGER_SECTOR_METADATA_SIZE;
             local secRemaining = SPIFLASHLOGGER_SECTOR_SIZE - _atPos;
-            if (objRemaining < secRemaining) secRemaining = objRemaining;
 
             // We are too close to the end of the sector, skip to the next sector
             if (objPos == 0 && secRemaining < SPIFLASHLOGGER_OBJECT_MIN_SIZE) {
+                secRemaining = SPIFLASHLOGGER_SECTOR_BODY_SIZE;
                 _atSec = (_atSec + 1) % _sectors;
                 _atPos = SPIFLASHLOGGER_SECTOR_METADATA_SIZE;
             }
-            // Handle overflow use-case for a one-sector logger
-            else if (_sectors == 1 && objPos == 0 && objRemaining > secRemaining) {
+            // Handle overflow use-case for a one-sector logger and multiple sectors logger
+            // This check intended to prevent start code overwriting
+            if ((_sectors == 1 && objPos == 0 && objRemaining > secRemaining)
+                || (_sectors > 1
+                    && _atPos > SPIFLASHLOGGER_SECTOR_METADATA_SIZE
+                    && objRemaining - secRemaining > (_sectors - 1) * SPIFLASHLOGGER_SECTOR_BODY_SIZE)) {
                 eraseAll(true);
                 _atPos = SPIFLASHLOGGER_SECTOR_METADATA_SIZE;
-                secRemaining = objRemaining;
+                secRemaining = SPIFLASHLOGGER_SECTOR_BODY_SIZE;
             }
+
+            // for a one sector only
+            if (objRemaining < secRemaining) secRemaining = objRemaining;
 
             // Now write the data
             _write(obj, _atSec, _atPos, objPos, secRemaining);

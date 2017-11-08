@@ -31,7 +31,7 @@
 class ReadBidirectionTestCase extends Core {
 
 
-      logger = null;
+      _logger = null;
 
       function setUp() {
           return Promise(function(resolve, reject) {
@@ -44,10 +44,10 @@ class ReadBidirectionTestCase extends Core {
                   local end = start + 2;
                   start *= SPIFLASHLOGGER_SECTOR_SIZE;
                   end   *= SPIFLASHLOGGER_SECTOR_SIZE;
-                  logger = SPIFlashLogger(start, end);
-                  logger.erase();
+                  _logger = SPIFlashLogger(start, end);
+                  _logger.erase();
                   for (local i = 0; i < 500; i++) {
-                      logger.write(i);
+                      _logger.write(i);
                   }
                   resolve();
               } catch (ex) {
@@ -65,7 +65,7 @@ class ReadBidirectionTestCase extends Core {
               local isOneReadingComplete = false;
               // READ FORWARD
               local expectedFwd = 0;
-              logger.read(function(data, addr, next) {
+              _logger.read(function(data, addr, next) {
                   try {
                       assertEqualWrap(expectedFwd, data, "Wrong data");
                       expectedFwd += 1;
@@ -87,7 +87,7 @@ class ReadBidirectionTestCase extends Core {
 
               // READ BACKWARDS
               local expectedBwd = 499;
-              logger.read(function(data, addr, next) {
+              _logger.read(function(data, addr, next) {
                   try {
                       assertEqualWrap(expectedBwd, data, "Wrong data");
                       expectedBwd -= 1;

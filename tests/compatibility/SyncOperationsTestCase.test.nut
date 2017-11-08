@@ -30,7 +30,7 @@
 // Tests for SPIFlashLogger.read()
 class SyncOperationsTestCase extends Core {
 
-    logger = null;
+    _logger = null;
     _postfix = " - 09876543210987654321098765432109876543210987654321";
     _counterShift = 100;  // this shift allow us to have fixed size of objects on write
     _maxLogsInSector = 0; // The maximu logs
@@ -53,13 +53,13 @@ class SyncOperationsTestCase extends Core {
 
                 local start = 0;
                 local end = 2 * SPIFLASHLOGGER_SECTOR_SIZE;
-                // Initialize 2 sectors logger
-                logger = SPIFlashLogger(start, end);
+                // Initialize 2 sectors _logger
+                _logger = SPIFlashLogger(start, end);
                 // Erase all data
-                logger.eraseAll(true);
+                _logger.eraseAll(true);
                 // Write max logs to the first sector
                 for (local i = 1; i <= _maxLogsInSector; i++) {
-                    logger.write((_counterShift + i) + _postfix);
+                    _logger.write((_counterShift + i) + _postfix);
                 }
                 resolve();
             } catch (ex) {
@@ -70,34 +70,34 @@ class SyncOperationsTestCase extends Core {
 
     function _checkFirstLastAndReadSync(vstart, vend, error) {
         // Check first and last
-        assertEqual((_counterShift + vstart) + _postfix, logger.first(), error + "Unexpected first log");
-        assertEqual((_counterShift + vend) + _postfix, logger.last(), error + "Unexpected last log");
+        assertEqual((_counterShift + vstart) + _postfix, _logger.first(), error + "Unexpected first log");
+        assertEqual((_counterShift + vend) + _postfix, _logger.last(), error + "Unexpected last log");
         // minimal test of the readSync
-        assertEqual((_counterShift + 1 + vstart) + _postfix, logger.readSync(2), error + "Unexpected 2-nd log value");
-        assertEqual((_counterShift + vend - 1) + _postfix, logger.readSync(-2), error + "Unexpected minus 2-nd log value");
+        assertEqual((_counterShift + 1 + vstart) + _postfix, _logger.readSync(2), error + "Unexpected 2-nd log value");
+        assertEqual((_counterShift + vend - 1) + _postfix, _logger.readSync(-2), error + "Unexpected minus 2-nd log value");
     }
 
     function testReadSync() {
         // Check first sector
-        assertTrue(logger.getPosition() < logger._start + SPIFLASHLOGGER_SECTOR_SIZE, "Wrong logger position");
+        assertTrue(_logger.getPosition() < _logger._start + SPIFLASHLOGGER_SECTOR_SIZE, "Wrong _logger position");
         // check reading in scope of one sector
         _checkFirstLastAndReadSync(1, _maxLogsInSector, "First sector write test.");
         // cross sector border of the first sector: the last object split between two sectors
-        logger.write((_counterShift + _maxLogsInSector + 1) + _postfix);
+        _logger.write((_counterShift + _maxLogsInSector + 1) + _postfix);
         // Check that sector border was crossed
-        assertEqual(logger.getPosition() > logger._start + SPIFLASHLOGGER_SECTOR_SIZE, true);
+        assertEqual(_logger.getPosition() > _logger._start + SPIFLASHLOGGER_SECTOR_SIZE, true);
         // Check values after sector border crossing
         _checkFirstLastAndReadSync(1, _maxLogsInSector + 1, "Two sectors border test.");
         // cross sector border
-        logger.write((_counterShift + _maxLogsInSector + 2) + _postfix);
+        _logger.write((_counterShift + _maxLogsInSector + 2) + _postfix);
         // last object in the second sector
         _checkFirstLastAndReadSync(1, _maxLogsInSector + 2, "Two sectors test.");
         // Fill the second sector and re-write first sector
         for (local i = 3; i <= _maxLogsInSector + 10; i++) {
-            logger.write((_counterShift + _maxLogsInSector + i) + _postfix);
+            _logger.write((_counterShift + _maxLogsInSector + i) + _postfix);
         }
         // Check first sector position
-        assertEqual(logger.getPosition() < logger._start + SPIFLASHLOGGER_SECTOR_SIZE, true);
+        assertEqual(_logger.getPosition() < _logger._start + SPIFLASHLOGGER_SECTOR_SIZE, true);
         // Test values
         _checkFirstLastAndReadSync(_maxLogsInSector + 2,
             2 * _maxLogsInSector + 10, "Sector overwrite test.");
