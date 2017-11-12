@@ -10,7 +10,7 @@ The SPIFlashLogger uses either the [Serializer library](https://electricimp.com/
 
 The libraries, used by the SPIFlashLogger in your case, must be added to your device code by `#require` statements.
 
-**To add SPIFlashLogger library to your project, add** `#require "SPIFlashLogger.class.nut:2.2.0"` **to the top of your device code.**
+**To add SPIFlashLogger library to your project, add** `#require "SPIFlashLogger.device.lib.nut:2.2.0"` **to the top of your device code.**
 
 ## Memory Efficiency
 
@@ -37,7 +37,7 @@ The SPIFlashLogger’s constructor takes four parameters, all of which are optio
 ```squirrel
 // Initializing a SPIFlashLogger on an imp003+
 #require "Serializer.class.nut:1.0.0"
-#require "SPIFlashLogger.class.nut:2.2.0"
+#require "SPIFlashLogger.device.lib.nut:2.2.0"
 
 // Initialize Logger to use the entire SPI Flash
 logger <- SPIFlashLogger();
@@ -47,7 +47,7 @@ logger <- SPIFlashLogger();
 // Initializing a SPIFlashLogger on an imp002
 #require "Serializer.class.nut:1.0.0"
 #require "SPIFlash.class.nut:1.0.1"
-#require "SPIFlashLogger.class.nut:2.2.0"
+#require "SPIFlashLogger.device.lib.nut:2.2.0"
 
 // Setup SPI Bus
 spi <- hardware.spi257;
