@@ -10,5 +10,5 @@ script:
   - imptest test
 
 before_install:
-  - openssl aes-256-cbc -K $encrypted_1c10239a1837_key -iv $encrypted_1c10239a1837_iv -in .imptest-auth.enc -out .imptest-auth -d
+  - openssl aes-256-cbc -K $encrypted_c20bb4dffaf6_key -iv $encrypted_c20bb4dffaf6_iv -in .imptest-auth.enc -out .imptest-auth -d 
 
