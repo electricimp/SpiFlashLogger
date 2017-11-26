@@ -40,7 +40,10 @@ class ReadBidirectionTestCase extends Core {
                       resolve();
                       return;
                   }
-                  local start = math.rand() % 120;
+                  hardware.spiflash.enable();
+                  local sectorsCount = hardware.spiflash.size() / SPIFLASHLOGGER_SECTOR_SIZE;
+                  hardware.spiflash.disable();
+                  local start = math.rand() % sectorsCount;
                   local end = start + 2;
                   start *= SPIFLASHLOGGER_SECTOR_SIZE;
                   end   *= SPIFLASHLOGGER_SECTOR_SIZE;
