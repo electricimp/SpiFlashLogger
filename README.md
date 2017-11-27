@@ -210,7 +210,7 @@ This method returns the current SPI flash pointer, ie. where SPIFlashLogger will
 
 See *setPosition()* for sample usage.
 
-### setPosition(*position*)###
+### setPosition(*position*) ###
 
 This method sets the current SPI flash pointer, ie. where SPIFlashLogger will perform the next read/write task. Setting the pointer can help optimize SPI flash memory usage between deep sleeps, as it allows SPIFlashLogger to be precise to one byte rather 256 bytes (the size of a chunk).
 
