@@ -1,0 +1,14 @@
+language: node_js
+
+node_js:
+  - '5.5'
+
+before_script:
+  - npm i -g imptest@latest
+
+script:
+  - imptest test
+
+before_install:
+  - openssl aes-256-cbc -K $encrypted_c20bb4dffaf6_key -iv $encrypted_c20bb4dffaf6_iv -in .imptest-auth.enc -out .imptest-auth -d 
+
