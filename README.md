@@ -27,7 +27,7 @@ SPIFlashLogger’s constructor takes four parameters, all of which are optional:
 | --- | --- | --- |
 | *start* | 0 | The first byte in the SPI flash to use (must be the first byte of a sector) |
 | *end*  | *spiflash.size()* | The last byte in the SPI flash to use (must be the last byte of a sector) |
-| *spiflash*  | **hardware.spiflash** | **hardware.spiflash**, or an object with an equivalent interface such as the [SPIFlash](https://electricimp.com/docs/libraries/hardware/spiflash) library |
+| *spiflash*  | **hardware.spiflash** | **hardware.spiflash**, or an object with an equivalent interface such as the [SPIFlash](https://developer.electricimp.com/libraries/hardware/spiflash) library |
 | *serializer* | Serializer class | The static [Serializer library](https://developer.electricimp.com/libraries/hardware/spiflash), or an object with an equivalent interface |
 
 ```squirrel
