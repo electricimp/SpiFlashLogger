@@ -8,7 +8,7 @@ SPIFlashLogger uses the [Serializer library](https://developer.electricimp.com/l
 
 **To add this library to your project, place the line** `#require "SPIFlashLogger.device.lib.nut:2.2.0"` **at the top of your device code.**
 
-## Memory Efficiency ##
+### Memory Efficiency ###
 
 SPIFlashLogger operates on 4KB sectors and 256-byte chunks. Objects need not be aligned with chunks or sectors. Some necessary overhead is added to the beginning of each sector, as well as each serialized object (assuming you are using the standard [Serializer library](https://developer.electricimp.com/libraries/utilities/serializer)). The overhead includes:
 
@@ -21,14 +21,16 @@ SPIFlashLogger operates on 4KB sectors and 256-byte chunks. Objects need not be 
 
 ### Constructor: SPIFlashLogger(*[start][, end][, spiflash][, serializer]*) ###
 
-SPIFlashLogger’s constructor takes four parameters, all of which are optional:
+#### Parameters ####
 
 | Parameter | Default Value | Description |
 | --- | --- | --- |
 | *start* | 0 | The first byte in the SPI flash to use (must be the first byte of a sector) |
 | *end*  | *spiflash.size()* | The last byte in the SPI flash to use (must be the last byte of a sector) |
-| *spiflash*  | **hardware.spiflash** | **hardware.spiflash**, or an object with an equivalent interface such as the [SPIFlash](https://electricimp.com/docs/libraries/hardware/spiflash) library |
+| *spiflash*  | **hardware.spiflash** | **hardware.spiflash**, or an object with an equivalent interface such as the [SPIFlash](https://developer.electricimp.com/libraries/hardware/spiflash) library |
 | *serializer* | Serializer class | The static [Serializer library](https://developer.electricimp.com/libraries/hardware/spiflash), or an object with an equivalent interface |
+
+#### Example ####
 
 ```squirrel
 // Initializing a SPIFlashLogger on an imp003+
@@ -78,20 +80,24 @@ This method writes any serializable object to the memory allocated for SPIFlashL
 
 If the provided object can not be serialized, the exception is thrown by the underlying serializer class.
 
+#### Example ####
+
 ```squirrel
 function readAndSleep() {
-    // Read and log the data
-    local data = getData();
-    logger.write(data);
+  // Read and log the data
+  local data = getData();
+  logger.write(data);
 
-    // Go to sleep for an hour
-    imp.onidle(function() { server.deepsleepfor(3600); });
+  // Go to sleep for an hour
+  imp.onidle(function() { server.deepsleepfor(3600); });
 }
 ```
 
 ### read(*onData[, onFinish][, step][, skip]*) ###
 
 This method reads objects from the logger asynchronously. This mechanism is intended for the asynchronous processing of each log object, such as sending data to the agent and waiting for an acknowledgement.
+
+#### Parameters ####
 
 | Parameter | Data Type | Required? | Description |
 | --- | --- | --- | --- |
@@ -120,23 +126,27 @@ As a potential use case, one might log two versions of each message: a short, co
 
 **Note** The logger does not erase objects when they are read, but each object can be erased in the *onData* callback by passing *address* to the *erase()* method.
 
+#### Example ####
+
 ```squirrel
 logger.read(
-    // For each object in the logs (onData)
-    function(dataPoint, address, next) {
-        // Send the dataPoint to the agent
-        server.log(format("Found object at SPI flash address %d", address))
-        agent.send("data", dataPoint);
-        // Erase it from the logger
-        logger.erase(address);
-        // Wait a little while for it to arrive
-        imp.wakeup(0.5, next);
-    },
+  // For each object in the logs (onData)
+  function(dataPoint, address, next) {
+    // Send the dataPoint to the agent
+    server.log(format("Found object at SPI flash address %d", address))
+    agent.send("data", dataPoint);
+    
+    // Erase it from the logger
+    logger.erase(address);
+    
+    // Wait a little while for it to arrive
+    imp.wakeup(0.5, next);
+  },
 
-    // All finished (onFinish)(
-    function() {
-        server.log("Finished sending and all entries are erased")
-    }
+  // All finished (onFinish)
+  function() {
+    server.log("Finished sending and all entries are erased")
+  }
 );
 ```
 
@@ -152,12 +162,14 @@ This method reads objects from the logger synchronously, returning a single log 
 
 *readSync*() starts from the current logger position, which is equal to the current write position. Therefore `readSync(0)` could not contain any object, and `readSync(-1)` is equal to ‘step back to read the last written object’. If the value of *index* is greater than zero, the logger is looking for an object in a first populated sector right after the current logger position, or it will read the beginning of the sector at the current position if there are no more sectors with objects.
 
+#### Example ####
+
 ```squirrel
 logger <- SPIFlashLogger(0, 16384);
 
 local microsAtStart = hardware.micros();
 for (local i = 0 ; i <= 1500 ; i++) {
-    logger.write(i)
+  logger.write(i)
 }
 
 server.log("Writing took " + (hardware.micros() - microsAtStart) / 1000000.0 + " seconds");
@@ -179,6 +191,8 @@ server.log("Index 1178 = " + logger.readSync(1178)  + " in " + (hardware.micros(
 
 This method synchronously returns the first object written to the log that hasn’t yet been erased (ie. the oldest entry in flash). If there are no logs in the flash, it returns *default*, or `null` if no argument is passed into *default*.
 
+#### Example ####
+
 ```squirrel
 logger.write("This is the oldest");
 logger.write("This is the newest");
@@ -188,6 +202,8 @@ assert(logger.first() == "This is the oldest");
 ### last(*[default]*) ### 
 
 This method synchronously returns the last object written to the log that hasn’t yet been erased (ie. the newest entry in flash). If there are no logs in the flash, it returns *default*, or `null` if no argument is passed into *default*.
+
+#### Example ####
 
 ```squirrel
 logger.eraseAll();
@@ -214,18 +230,20 @@ See *setPosition()* for sample usage.
 
 This method sets the current SPI flash pointer, ie. where SPIFlashLogger will perform the next read/write task. Setting the pointer can help optimize SPI flash memory usage between deep sleeps, as it allows SPIFlashLogger to be precise to one byte rather 256 bytes (the size of a chunk).
 
+#### Example ####
+
 ```squirrel
 // Create the logger object
 logger <- SPIFlashLogger();
 
 // Check if we have position information in the nv table:
 if ("nv" in getroottable() && "position" in nv) {
-    // If we do, update the position pointers in the logger object
-    logger.setPosition(nv.position);
+  // If we do, update the position pointers in the logger object
+  logger.setPosition(nv.position);
 } else {
-    // If we don't, grab the position points and set nv
-    local position = logger.getPosition();
-    nv <- { "position": position };
+  // If we don't, grab the position points and set nv
+  local position = logger.getPosition();
+  nv <- { "position": position };
 }
 
 // Get some data and log it
@@ -234,51 +252,55 @@ logger.write(data);
 
 // Increment a counter
 if (!("count" in nv)) {
-    nv.count <- 1;
+  nv.count <- 1;
 } else {
-    nv.count++;
+  nv.count++;
 }
 
 // If we have more than 100 samples
 if (nv.count > 100) {
-    // Send the samples to the agent
-    logger.read(
-        function(dataPoint, addr, next) {
-            // Send the dataPoint to the agent
-            agent.send("data", dataPoint);
-            // Erase it from the logger
-            logger.erase(addr);
-            // Wait a little while for it to arrive
-            imp.wakeup(0.5, next);
-        },
-        function() {
-            server.log("Finished sending and all entries are erased");
-            // Reset counter
-            nv.count <- 1;
-            // Go to sleep when done
-            imp.onidle(function() {
-                // Get and store position pointers for next run
-                local position = logger.getPosition();
-                nv.position <- position;
-
-                // Sleep for 1 minute
-                imp.deepsleepfor(60);
-            });
-        }
-    );
-} else {
-    // Go to sleep
-    imp.onidle(function() {
+  // Send the samples to the agent
+  logger.read(
+    function(dataPoint, addr, next) {
+      // Send the dataPoint to the agent
+      agent.send("data", dataPoint);
+      
+      // Erase it from the logger
+      logger.erase(addr);
+      
+      // Wait a little while for it to arrive
+      imp.wakeup(0.5, next);
+    },
+    function() {
+      server.log("Finished sending and all entries are erased");
+      
+      // Reset counter
+      nv.count <- 1;
+      
+      // Go to sleep when done
+      imp.onidle(function() {
         // Get and store position pointers for next run
         local position = logger.getPosition();
         nv.position <- position;
 
         // Sleep for 1 minute
         imp.deepsleepfor(60);
-    });
+      });
+    }
+  );
+} else {
+  // Go to sleep
+  imp.onidle(function() {
+    // Get and store position pointers for next run
+    local position = logger.getPosition();
+    nv.position <- position;
+
+    // Sleep for 1 minute
+    imp.deepsleepfor(60);
+  });
 }
 ```
 
-# License
+## License ##
 
 The SPIFlashLogger library is licensed under [MIT License](https://github.com/electricimp/spiflashlogger/tree/master/LICENSE).
