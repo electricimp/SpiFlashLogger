@@ -6,3 +6,5 @@ build/*
 logs/*
 **/*.bak
 **/*.bkp
+.impt.git.auth
+.builder-cache

@@ -8,6 +8,8 @@ SPIFlashLogger uses the [Serializer library](https://developer.electricimp.com/l
 
 **To add this library to your project, place the line** `#require "SPIFlashLogger.device.lib.nut:2.2.0"` **at the top of your device code.**
 
+![Build Status](https://cse-ci.electricimp.com/app/rest/builds/buildType:(id:SpiFlashLogger_BuildAndTest)/statusIcon)
+
 ### Memory Efficiency ###
 
 SPIFlashLogger operates on 4KB sectors and 256-byte chunks. Objects need not be aligned with chunks or sectors. Some necessary overhead is added to the beginning of each sector, as well as each serialized object (assuming you are using the standard [Serializer library](https://developer.electricimp.com/libraries/utilities/serializer)). The overhead includes:

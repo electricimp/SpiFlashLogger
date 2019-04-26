@@ -1,0 +1,14 @@
+{
+  "deviceGroupId": "3e4a50eb-0fc8-cab6-41b9-3e02ced9270e",
+  "timeout": 60,
+  "stopOnFail": false,
+  "allowDisconnect": false,
+  "builderCache": true,
+  "testFiles": [
+    "*.test.nut",
+    "tests/**/*.test.nut"
+  ],
+  "deviceFile": "SPIFlashLogger.device.lib.nut",
+  "githubConfig": ".impt.git.auth"
+}
+
