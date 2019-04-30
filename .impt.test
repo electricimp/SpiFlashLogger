@@ -9,7 +9,6 @@
     "*.test.nut",
     "tests/**/*.test.nut"
   ],
-  "deviceFile": "SPIFlashLogger.device.lib.nut",
-  "githubConfig": ".impt.git.auth"
+  "deviceFile": "SPIFlashLogger.device.lib.nut"
 }
 
