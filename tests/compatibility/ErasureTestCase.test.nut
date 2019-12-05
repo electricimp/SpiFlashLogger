@@ -31,18 +31,19 @@
 class ErasureTestCase extends Core {
 
     function testReadEraseReadSequence() {
-        if (!isAvailable()) {
-            return;
-        }
-        local start = math.rand() % 15;
+        if (!isAvailable()) return "Cannot run test, missing hardware.spiflash";
+
+        local start = getRandomSectorStart();
         local end = start + 1;
         start *= SPIFLASHLOGGER_SECTOR_SIZE;
         end   *= SPIFLASHLOGGER_SECTOR_SIZE;
         local logger = SPIFlashLogger(start, end);
+        
         logger.erase();
         for (local i = 1; i <= 5; i++) {
             logger.write(i);
         }
+        
         return Promise(function(resolve, reject) {
             local expected = 0;
             logger.read(function(data, addr, next) {
@@ -68,20 +69,20 @@ class ErasureTestCase extends Core {
 
     function testEraseAll() {
         return Promise(function(resolve, reject) {
-            if (!isAvailable()) {
-                resolve();
-                return;
-            }
-            local start = math.rand() % 15;
+            if (!isAvailable()) return reject("Cannot run test, missing hardware.spiflash");
+
+            local start = getRandomSectorStart();
             local end = start + 1;
             start *= SPIFLASHLOGGER_SECTOR_SIZE;
             end   *= SPIFLASHLOGGER_SECTOR_SIZE;
             local logger = SPIFlashLogger(start, end);
+
             logger.erase();
             for (local i = 1; i <= 5; i++) {
                 logger.write(i);
             }
             logger.eraseAll();
+            
             logger.read(function(data, addr, next) {
                 reject("Data was not erased");
                 next(false);

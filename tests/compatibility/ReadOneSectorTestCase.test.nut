@@ -35,32 +35,30 @@ class ReadOneSectorTestCase extends Core {
     function setUp() {
         return Promise(function(resolve, reject) {
             try {
-                if (!isAvailable()) {
-                    resolve();
-                    return;
-                }
-                local start = math.rand() % 15;
-                local end = start + 1;
+                if (!isAvailable()) return reject("Cannot run tests, missing hardware.spiflash"); 
+
+                local start = getRandomSectorStart();
+                local end   = start + 1;
                 start *= SPIFLASHLOGGER_SECTOR_SIZE;
                 end   *= SPIFLASHLOGGER_SECTOR_SIZE;
+
                 _logger = SPIFlashLogger(start, end);
                 _logger.erase();
                 for (local i = 1; i <= 5; i++) {
                     _logger.write(i);
                 }
-                resolve();
+                
+                return resolve();
             } catch (ex) {
-                reject("Unexpected error: " + ex);
+                return reject("Unexpected error: " + ex);
             }
         }.bindenv(this));
     }
 
     function testReadBackwards() {
         return Promise(function(resolve, reject) {
-            if (!isAvailable()) {
-                resolve();
-                return;
-            }
+            if (!isAvailable()) return reject("Cannot run test, missing hardware.spiflash"); 
+
             local expected = 5;
             _logger.read(function(data, addr, next) {
                 try {
@@ -80,10 +78,8 @@ class ReadOneSectorTestCase extends Core {
 
     function testReadBackwardsByTwos() {
         return Promise(function(resolve, reject) {
-            if (!isAvailable()) {
-                resolve();
-                return;
-            }
+            if (!isAvailable()) return reject("Cannot run test, missing hardware.spiflash"); 
+
             local expected = 5;
             _logger.read(function(data, addr, next) {
                 try {
@@ -104,10 +100,8 @@ class ReadOneSectorTestCase extends Core {
 
     function testReadBackwardsByTwosStartsOne() {
         return Promise(function(resolve, reject) {
-            if (!isAvailable()) {
-                resolve();
-                return;
-            }
+            if (!isAvailable()) return reject("Cannot run test, missing hardware.spiflash"); 
+
             local expected = 4;
             _logger.read(function(data, addr, next) {
                 try {
@@ -128,10 +122,8 @@ class ReadOneSectorTestCase extends Core {
 
     function testReadBackwardsByThrees() {
         return Promise(function(resolve, reject) {
-            if (!isAvailable()) {
-                resolve();
-                return;
-            }
+            if (!isAvailable()) return reject("Cannot run test, missing hardware.spiflash"); 
+
             local expected = 5;
             _logger.read(function(data, addr, next) {
                 try {
@@ -152,10 +144,8 @@ class ReadOneSectorTestCase extends Core {
 
     function testReadForwards() {
         return Promise(function(resolve, reject) {
-            if (!isAvailable()) {
-                resolve();
-                return;
-            }
+            if (!isAvailable()) return reject("Cannot run test, missing hardware.spiflash"); 
+
             local expected = 1;
             _logger.read(function(data, addr, next) {
                 try {
@@ -171,10 +161,8 @@ class ReadOneSectorTestCase extends Core {
 
     function testReadForwardsByTwos() {
         return Promise(function(resolve, reject) {
-            if (!isAvailable()) {
-                resolve();
-                return;
-            }
+            if (!isAvailable()) return reject("Cannot run test, missing hardware.spiflash"); 
+
             local expected = 1;
             _logger.read(function(data, addr, next) {
                 try {
@@ -191,10 +179,8 @@ class ReadOneSectorTestCase extends Core {
 
     function testEarlyAbort() {
         return Promise(function(resolve, reject) {
-            if (!isAvailable()) {
-                resolve();
-                return;
-            }
+            if (!isAvailable()) return reject("Cannot run test, missing hardware.spiflash"); 
+
             local expected = 1;
             _logger.read(function(data, addr, next) {
                 try {
@@ -210,10 +196,8 @@ class ReadOneSectorTestCase extends Core {
 
     function testReadFwdByTwoStartsOne() {
         return Promise(function(resolve, reject) {
-            if (!isAvailable()) {
-                resolve();
-                return;
-            }
+            if (!isAvailable()) return reject("Cannot run test, missing hardware.spiflash"); 
+            
             local expected = 2;
             _logger.read(function(data, addr, next) {
                 try {

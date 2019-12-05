@@ -33,19 +33,17 @@ class WriteTillOverrideTestCase extends Core {
     function testFirstSectorOverride() {
         return Promise(function(resolve, reject) {
             try {
-                if (!isAvailable()) {
-                    resolve();
-                    return;
-                }
-                local start = 0;
-                local end = SPIFLASHLOGGER_SECTOR_SIZE;
-                // one sector logger
+                if (!isAvailable()) return reject("Cannot run test, missing hardware.spiflash");
+
+                // One sector logger
+                local start  = 0;
+                local end    = SPIFLASHLOGGER_SECTOR_SIZE;
                 local logger = SPIFlashLogger(start, end, null, Serializer);
                 logger.eraseAll(true);
-                local message = 1;
-                local messageDifferent = 2;
-                local messagesPerSector =
-                     (SPIFLASHLOGGER_SECTOR_SIZE - SPIFLASHLOGGER_SECTOR_METADATA_SIZE) / Serializer.sizeof(message, SPIFLASHLOGGER_OBJECT_MARKER);
+
+                local message           = 1;
+                local messageDifferent  = 2;
+                local messagesPerSector = (SPIFLASHLOGGER_SECTOR_SIZE - SPIFLASHLOGGER_SECTOR_METADATA_SIZE) / Serializer.sizeof(message, SPIFLASHLOGGER_OBJECT_MARKER);
                 for (local i = 0; i < messagesPerSector + 1; i++) {
                     if (i < messagesPerSector) {
                         logger.write(message);
@@ -53,6 +51,7 @@ class WriteTillOverrideTestCase extends Core {
                         logger.write(messageDifferent);
                     }
                 }
+                
                 local hasData = false;
                 logger.read(function(data, addr, next) {
                     hasData = true;

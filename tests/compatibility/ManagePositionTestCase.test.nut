@@ -32,36 +32,38 @@ class ManagePositionTestCase extends Core {
 
     function testSetPosition() {
         return Promise(function(resolve, reject) {
-            if (!isAvailable()) {
-                resolve();
-                return;
-            }
-            local start = 0;
-            local end = SPIFLASHLOGGER_SECTOR_SIZE;
+            if (!isAvailable()) return reject("Cannot run test, missing hardware.spiflash"); 
+
+            local start  = 0;
+            local end    = SPIFLASHLOGGER_SECTOR_SIZE;
             local logger = SPIFlashLogger(start, end);
             logger.erase();
             logger.setPosition(0);
-            // fill logger with values 1 2 3 and then compare length and position
+
+            // Fill logger with values 1 2 3 and then compare length and position
             local length = SPIFLASHLOGGER_SECTOR_METADATA_SIZE;
             for (local i = 0; i < 3; i++) {
                 logger.write(i);
                 length += Serializer.sizeof(i, SPIFLASHLOGGER_OBJECT_MARKER);
             }
+
             try {
                 assertEqualWrap(length, logger.getPosition(), "Wrong getPosition() value");
             } catch (ex) {
-                reject(ex);
-                return;
+                return reject(ex);
             }
-            // set position to 0, so values will be overriden
+
+            // Set position to 0, so values will be overriden
             local loggerNew = SPIFlashLogger(start, end);
             loggerNew.setPosition(0);
+        
             local overrideFrom = 5;
-            local overrideTo = 8;
+            local overrideTo   = 8;
             for (local i = overrideFrom; i < overrideTo; i++) {
                 loggerNew.write(i);
             }
-            // check that the values have been overridden (because of setPosition(0) method)
+
+            // Check that the values have been overridden (because of setPosition(0) method)
             loggerNew.read(function(data, addr, next) {
                 try {
                     if (data >= overrideTo) throw "Read value more than '" + overrideTo + "'";

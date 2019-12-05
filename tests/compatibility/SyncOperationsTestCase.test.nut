@@ -30,18 +30,15 @@
 // Tests for SPIFlashLogger.read()
 class SyncOperationsTestCase extends Core {
 
-    _logger = null;
-    _postfix = " - 09876543210987654321098765432109876543210987654321";
-    _counterShift = 100;  // this shift allow us to have fixed size of objects on write
-    _maxLogsInSector = 0; // The maximu logs
+    _logger          = null;
+    _postfix         = " - 09876543210987654321098765432109876543210987654321";
+    _counterShift    = 100; // this shift allow us to have fixed size of objects on write
+    _maxLogsInSector = 0;   // The maximu logs
 
     function setUp() {
         return Promise(function(resolve, reject) {
             try {
-                if (!isAvailable()) {
-                    resolve();
-                    return;
-                }
+                if (!isAvailable()) return reject("Cannot run tests, missing hardware.spiflash"); 
 
                 // Calculate the max count of the test-logs which could fit in one sector
                 // Test log consists of  index + postfix, but index was shift on _counterShift
@@ -51,19 +48,22 @@ class SyncOperationsTestCase extends Core {
                 local objSize = Serializer.sizeof((_counterShift + _postfix), SPIFLASHLOGGER_OBJECT_MARKER);
                 _maxLogsInSector = (SPIFLASHLOGGER_SECTOR_SIZE - SPIFLASHLOGGER_SECTOR_METADATA_SIZE)/ objSize;
 
+                // Initialize 2 sectors _logger
                 local start = 0;
                 local end = 2 * SPIFLASHLOGGER_SECTOR_SIZE;
-                // Initialize 2 sectors _logger
                 _logger = SPIFlashLogger(start, end);
+
                 // Erase all data
                 _logger.eraseAll(true);
+
                 // Write max logs to the first sector
                 for (local i = 1; i <= _maxLogsInSector; i++) {
                     _logger.write((_counterShift + i) + _postfix);
                 }
-                resolve();
+
+                return resolve();
             } catch (ex) {
-                reject("Unexpected error on test setup: " + ex);
+                return reject("Unexpected error on test setup: " + ex);
             }
         }.bindenv(this));
     }

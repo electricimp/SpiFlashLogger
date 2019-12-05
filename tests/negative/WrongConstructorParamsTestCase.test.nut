@@ -32,73 +32,65 @@ class WrongConstructorParamsTestCase extends Core {
 
     function testExceptionForStartParameter() {
         return Promise(function(resolve, reject) {
-            if (!isAvailable()) {
-                resolve();
-                return;
-            }
+            if (!isAvailable()) return reject("Cannot run test, missing hardware.spiflash");
+
             local start = 2 * SPIFLASHLOGGER_SECTOR_SIZE;
             local end   = 1 * SPIFLASHLOGGER_SECTOR_SIZE;
             try {
                 local logger = SPIFlashLogger(start, end);
             } catch (ex) {
-                resolve();
-                return;
+                return resolve();
             }
-            reject("Invalid parameters did not raise an error");
+            
+            return reject("Invalid parameters did not raise an error");
         }.bindenv(this));
     }
 
     function testExceptionForStartNotFirstByte() {
         return Promise(function(resolve, reject) {
-            if (!isAvailable()) {
-                resolve();
-                return;
-            }
+            if (!isAvailable()) return reject("Cannot run test, missing hardware.spiflash");
+
             local start = 1 * SPIFLASHLOGGER_SECTOR_SIZE + 1;
             local end   = 2 * SPIFLASHLOGGER_SECTOR_SIZE;
             try {
                 local logger = SPIFlashLogger(start, end);
             } catch (ex) {
-                resolve();
-                return;
+                return resolve();
             }
-            reject("Invalid parameters did not raise an error");
+
+            return reject("Invalid parameters did not raise an error");
         }.bindenv(this));
     }
 
     function testExceptionForEndNotFirstByte() {
         return Promise(function(resolve, reject) {
-            if (!isAvailable()) {
-                resolve();
-                return;
-            }
+            if (!isAvailable()) return reject("Cannot run test, missing hardware.spiflash");
+
             local start = 1 * SPIFLASHLOGGER_SECTOR_SIZE;
             local end   = 2 * SPIFLASHLOGGER_SECTOR_SIZE - 1;
             try {
                 local logger = SPIFlashLogger(start, end);
             } catch (ex) {
-                resolve();
-                return;
+                return resolve();
             }
-            reject("Invalid parameters did not raise an error");
+
+            return reject("Invalid parameters did not raise an error");
         }.bindenv(this));
     }
 
     function testExceptionForStartEndNotFirstByte() {
         return Promise(function(resolve, reject) {
-            if (!isAvailable()) {
-                resolve();
-                return;
-            }
+            if (!isAvailable()) return reject("Cannot run test, missing hardware.spiflash");
+
             local start = 1 * SPIFLASHLOGGER_SECTOR_SIZE + 1;
             local end   = 2 * SPIFLASHLOGGER_SECTOR_SIZE - 1;
             try {
                 local logger = SPIFlashLogger(start, end);
             } catch (ex) {
-                resolve();
-                return;
+                return resolve();
             }
-            reject("Invalid parameters did not raise an error");
+
+            return reject("Invalid parameters did not raise an error");
         }.bindenv(this));
     }
 }

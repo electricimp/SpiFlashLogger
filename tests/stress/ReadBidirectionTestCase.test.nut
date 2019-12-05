@@ -30,84 +30,78 @@
 // Tests for SPIFlashLogger
 class ReadBidirectionTestCase extends Core {
 
+    _logger = null;
 
-      _logger = null;
+    function setUp() {
+        return Promise(function(resolve, reject) {
+            try {
+                if (!isAvailable()) return reject("Cannot run tests, missing hardware.spiflash");
 
-      function setUp() {
-          return Promise(function(resolve, reject) {
-              try {
-                  if (!isAvailable()) {
-                      resolve();
-                      return;
-                  }
-                  hardware.spiflash.enable();
-                  local sectorsCount = hardware.spiflash.size() / SPIFLASHLOGGER_SECTOR_SIZE;
-                  hardware.spiflash.disable();
-                  local start = math.rand() % sectorsCount;
-                  local end = start + 2;
-                  start *= SPIFLASHLOGGER_SECTOR_SIZE;
-                  end   *= SPIFLASHLOGGER_SECTOR_SIZE;
-                  _logger = SPIFlashLogger(start, end);
-                  _logger.erase();
-                  for (local i = 0; i < 500; i++) {
-                      _logger.write(i);
-                  }
-                  resolve();
-              } catch (ex) {
-                  reject("Unexpected error: " + ex);
-              }
-          }.bindenv(this));
-      }
+                local start = getRandomSectorStart(2);
+                local end   = start + 2;
+                start *= SPIFLASHLOGGER_SECTOR_SIZE;
+                end   *= SPIFLASHLOGGER_SECTOR_SIZE;
+                _logger = SPIFlashLogger(start, end);
+                
+                _logger.erase();
+                for (local i = 0; i < 500; i++) {
+                    _logger.write(i);
+                }
 
-      function testReadForwardsAndBackwards() {
-          return Promise(function(resolve, reject) {
-              if (!isAvailable()) {
-                  resolve();
-                  return;
-              }
-              local isOneReadingComplete = false;
-              // READ FORWARD
-              local expectedFwd = 0;
-              _logger.read(function(data, addr, next) {
-                  try {
-                      assertEqualWrap(expectedFwd, data, "Wrong data");
-                      expectedFwd += 1;
-                      next();
-                  } catch (ex) {
-                      // No need to reject twice
-                      if (!isOneReadingComplete) {
-                          reject(ex);
-                          isOneReadingComplete = true;
-                      }
-                      next(false);
-                  }
-              }.bindenv(this), function() {
-                  if (!isOneReadingComplete) {
-                      isOneReadingComplete = true;
-                      resolve();
-                  }
-              }.bindenv(this));
+                return resolve();
+            } catch (ex) {
+                return reject("Unexpected error: " + ex);
+            }
+        }.bindenv(this));
+    }
 
-              // READ BACKWARDS
-              local expectedBwd = 499;
-              _logger.read(function(data, addr, next) {
-                  try {
-                      assertEqualWrap(expectedBwd, data, "Wrong data");
-                      expectedBwd -= 1;
-                      next();
-                  } catch (ex) {
-                      if (!isOneReadingComplete) {
-                          reject(ex);
-                          isOneReadingComplete = true;
-                      }
-                      next(false);
-                  }
-              }.bindenv(this), function() {
-                  if (!isOneReadingComplete) {
-                      isOneReadingComplete = true;
-                      resolve();
-                  }
-              }.bindenv(this), -1);
-          }.bindenv(this));
-      } // Bi-Direction reading
+    function testReadForwardsAndBackwards() {
+        return Promise(function(resolve, reject) {
+            if (!isAvailable()) return reject("Cannot run test, missing hardware.spiflash");
+
+            local isOneReadingComplete = false;
+            // READ FORWARD
+            local expectedFwd = 0;
+            _logger.read(function(data, addr, next) {
+                try {
+                    assertEqualWrap(expectedFwd, data, "Wrong data");
+                    expectedFwd += 1;
+                    next();
+                } catch (ex) {
+                    // No need to reject twice
+                    if (!isOneReadingComplete) {
+                        reject(ex);
+                        isOneReadingComplete = true;
+                    }
+                    next(false);
+                }
+            }.bindenv(this), function() {
+                if (!isOneReadingComplete) {
+                    isOneReadingComplete = true;
+                    resolve();
+                }
+            }.bindenv(this));
+
+            // READ BACKWARDS
+            local expectedBwd = 499;
+            _logger.read(function(data, addr, next) {
+                try {
+                    assertEqualWrap(expectedBwd, data, "Wrong data");
+                    expectedBwd -= 1;
+                    next();
+                } catch (ex) {
+                    if (!isOneReadingComplete) {
+                        reject(ex);
+                        isOneReadingComplete = true;
+                    }
+                    next(false);
+                }
+            }.bindenv(this), function() {
+                if (!isOneReadingComplete) {
+                    isOneReadingComplete = true;
+                    resolve();
+                }
+            }.bindenv(this), -1);
+        }.bindenv(this));
+    } // Bi-Direction reading
 }

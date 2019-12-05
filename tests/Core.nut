@@ -30,10 +30,17 @@ class Core extends ImpTestCase {
 
     function isAvailable() {
         local available = "spiflash" in hardware;
-        if (!available) {
-            info("Test won't run without hardware.spiflash");
-        }
+        if (!available) info("Test hardware missing hardware.spiflash");
         return available;
+    }
+
+    function getRandomSectorStart(endOffset = 1) {
+        hardware.spiflash.enable();
+        local sectorsCount = hardware.spiflash.size() / SPIFLASHLOGGER_SECTOR_SIZE;
+        hardware.spiflash.disable();
+
+        local maxStart = sectorsCount - endOffset;
+        return (1.0 * maxStart * math.rand() / RAND_MAX).tointeger();
     }
 
     function assertEqualWrap(expected, actual, message = null, annotate = true) {

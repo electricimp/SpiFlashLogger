@@ -33,19 +33,18 @@ class SectorIdOverflowTestCase extends Core {
     function testSectorIdOverflow() {
         return Promise(function(resolve, reject) {
             try {
-                if (!isAvailable()) {
-                    resolve();
-                    return;
-                }
+                if (!isAvailable()) return reject("Cannot run test, missing hardware.spiflash");
+
                 local sectors = 5;
                 local start   = 0;
                 local end     = start + sectors;
                 local logger  = SPIFlashLogger(start * SPIFLASHLOGGER_SECTOR_SIZE, end * SPIFLASHLOGGER_SECTOR_SIZE);
+                
                 logger.eraseAll(true);
                 logger._nextSectorId = 0x7FFFFFFE;
-
-                for (local i = 0; i < 400; i++)
+                for (local i = 0; i < 400; i++) {
                     logger.write(i);
+                }
 
                 assertTrue(logger._nextSectorId < sectors, "Failed to handle next sector id overflow");
                 local logger2  = SPIFlashLogger(start * SPIFLASHLOGGER_SECTOR_SIZE, end * SPIFLASHLOGGER_SECTOR_SIZE);
@@ -53,9 +52,9 @@ class SectorIdOverflowTestCase extends Core {
                 assertTrue(logger2.getPosition() - logger.getPosition() >= 0, "Wrong position recovery in case of overflow.");
                 // Check an internal counter recovery
                 assertEqual(logger2._nextSectorId, logger._nextSectorId, "Wrong sector id after recovery");
-                resolve();
+                return resolve();
             } catch (ex) {
-                reject("Unexpected error: " + ex);
+                return reject("Unexpected error: " + ex);
             }
         }.bindenv(this));
     }

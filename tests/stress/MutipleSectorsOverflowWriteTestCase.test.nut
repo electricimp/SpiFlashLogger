@@ -30,27 +30,25 @@
 // Tests for SPIFlash__logger.read()
 class MultipleSectors_loggerOverflowWriteTestCase extends Core {
 
-    _logger = null;
+    _logger   = null;
     _someData = " - 09876543210987654321098765432109876543210987654321";
 
     function setUp() {
         return Promise(function(resolve, reject) {
             try {
-                if (!isAvailable()) {
-                    resolve();
-                    return;
-                }
+                if (!isAvailable()) return reject("Cannot run tests, missing hardware.spiflash");
 
-                local start = 0;
-                local end = 2 * SPIFLASHLOGGER_SECTOR_SIZE;
                 // Initialize 2 sectors _logger
+                local start = 0;
+                local end   = 2 * SPIFLASHLOGGER_SECTOR_SIZE;
                 _logger = SPIFlashLogger(start, end);
+
                 // Erase all data
                 _logger.eraseAll(true);
 
-                resolve();
+                return resolve();
             } catch (ex) {
-                reject("Unexpected error on test setup: " + ex);
+                return reject("Unexpected error on test setup: " + ex);
             }
         }.bindenv(this));
     }
@@ -62,7 +60,7 @@ class MultipleSectors_loggerOverflowWriteTestCase extends Core {
     function writeMaxSizeObject() {
       // Write max logs to the first sector
       local dataSize = 0;
-      local testObj = "";
+      local testObj  = "";
       while (dataSize < SPIFLASHLOGGER_SECTOR_BODY_SIZE * 3 / 2) {
           testObj += _someData;
           dataSize = Serializer.sizeof(testObj);
