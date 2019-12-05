@@ -35,35 +35,30 @@ class ReadTwoSectorsTestCase extends Core {
     function setUp() {
         return Promise(function(resolve, reject) {
             try {
-                if (!isAvailable()) {
-                    resolve();
-                    return;
-                }
-                hardware.spiflash.enable();
-                local sectorsCount = hardware.spiflash.size() / SPIFLASHLOGGER_SECTOR_SIZE;
-                hardware.spiflash.disable();
-                local start = math.rand() % sectorsCount;
+                if (!isAvailable()) return reject("Cannot run tests, missing hardware.spiflash");  
+
+                local start = getRandomSectorStart(2);
                 local end = start + 2;
                 start *= SPIFLASHLOGGER_SECTOR_SIZE;
                 end   *= SPIFLASHLOGGER_SECTOR_SIZE;
                 _logger = SPIFlashLogger(start, end);
+
                 _logger.erase();
                 for (local i = 0; i < 500; i++) {
                     _logger.write(i);
                 }
-                resolve();
+
+                return resolve();
             } catch (ex) {
-                reject("Unexpected error: " + ex);
+                return reject("Unexpected error: " + ex);
             }
         }.bindenv(this));
     }
 
     function testReadForwards() {
         return Promise(function(resolve, reject) {
-            if (!isAvailable()) {
-                resolve();
-                return;
-            }
+            if (!isAvailable()) return reject("Cannot run test, missing hardware.spiflash"); 
+
             local expected = 0;
             _logger.read(function(data, addr, next) {
                 try {
@@ -80,10 +75,8 @@ class ReadTwoSectorsTestCase extends Core {
 
     function testByTwos() {
         return Promise(function(resolve, reject) {
-            if (!isAvailable()) {
-                resolve();
-                return;
-            }
+            if (!isAvailable()) return reject("Cannot run test, missing hardware.spiflash"); 
+
             local expected = 0;
             _logger.read(function(data, addr, next) {
                 try {
@@ -100,10 +93,8 @@ class ReadTwoSectorsTestCase extends Core {
 
     function testReadBackwards() {
         return Promise(function(resolve, reject) {
-            if (!isAvailable()) {
-                resolve();
-                return;
-            }
+            if (!isAvailable()) return reject("Cannot run test, missing hardware.spiflash"); 
+            
             local expected = 499;
             _logger.read(function(data, addr, next) {
                 try {

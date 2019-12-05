@@ -33,34 +33,36 @@ class OverflowTestCase extends Core {
     function testWrite() {
         return Promise(function(resolve, reject) {
             try {
-                if (!isAvailable()) {
-                    resolve();
-                    return;
-                }
+                if (!isAvailable()) return reject("Cannot run test, missing hardware.spiflash");
+
                 local sectors = 5;
                 local start   = 0;
                 local end     = start + sectors;
                 local logger  = SPIFlashLogger(start * SPIFLASHLOGGER_SECTOR_SIZE, end * SPIFLASHLOGGER_SECTOR_SIZE);
+                
                 logger.eraseAll(true);
                 // Write data in scope of sector
                 for (local i = 0; i < 100; i++) {
                     logger.write(i);
                 }
                 logger.eraseAll(true);
+                
                 // Write data in scope of multiple sectors
                 for (local i = 0; i < 1000; i++) {
                     logger.write(i);
                 }
                 logger.eraseAll(true);
+                
                 // Write data override first written data
                 // test cycle buffer
                 for (local i = 0; i < 10000; i++) {
                     logger.write(i);
                 }
                 logger.eraseAll(true);
-                resolve();
+
+                return resolve();
             } catch (ex) {
-                reject("Unexpected error: " + ex);
+                return reject("Unexpected error: " + ex);
             }
         }.bindenv(this));
     }

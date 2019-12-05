@@ -32,16 +32,15 @@ class WriteTooBigDataTestCase extends Core {
 
     function testWriteException() {
         return Promise(function(resolve, reject) {
-            if (!isAvailable()) {
-                resolve();
-                return;
-            }
+            if (!isAvailable()) return reject("Cannot run test, missing hardware.spiflash");
+
             local sectors = 1;
             local start   = 1;
             local end     = start + sectors;
             local maxLen  = sectors * SPIFLASHLOGGER_SECTOR_BODY_SIZE;
             local logger  = SPIFlashLogger(start * SPIFLASHLOGGER_SECTOR_SIZE, end * SPIFLASHLOGGER_SECTOR_SIZE);
             logger.erase();
+            
             try {
                 local data = "";
                 for (local i = 0; i < maxLen + 1; i++) {
@@ -49,10 +48,10 @@ class WriteTooBigDataTestCase extends Core {
                 }
                 logger.write(data);
             } catch (ex) {
-                resolve();
-                return;
+                return resolve();
             }
-            reject("Writing data, larger than allocated memory, did not raise an error");
+            
+            return reject("Writing data, larger than allocated memory, did not raise an error");
         }.bindenv(this));
     }
 }

@@ -33,27 +33,27 @@ class DimensionsTestCase extends Core {
     function testDefaultValues() {
         return Promise(function(resolve, reject) {
             try {
-                if (!isAvailable()) {
-                    resolve();
-                    return;
-                }
+                if (!isAvailable()) return reject("Cannot run test, missing hardware.spiflash");
+        
                 hardware.spiflash.enable();
                 local size = hardware.spiflash.size();
                 hardware.spiflash.disable();
+
                 local logger = SPIFlashLogger();
                 local dimensions = logger.dimensions();
+
                 try {
                     assertEqualWrap(0, dimensions.start, "dimensions.start");
                     assertEqualWrap(size, dimensions.end, "dimensions.end");
                     assertEqualWrap(size, dimensions.len, "dimensions.len");
                     assertEqualWrap(size, dimensions.size, "dimensions.size");
                 } catch (ex) {
-                    reject(ex);
+                    return reject(ex);
                 }
-                resolve();
-                return;
+
+                return resolve();
             } catch (ex) {
-                reject("Unexpected error: " + ex);
+                return reject("Unexpected error: " + ex);
             }
         }.bindenv(this));
     }
@@ -61,28 +61,28 @@ class DimensionsTestCase extends Core {
     function testStartValueSetup() {
         return Promise(function(resolve, reject) {
             try {
-                if (!isAvailable()) {
-                    resolve();
-                    return;
-                }
-                local start = 2 * SPIFLASHLOGGER_SECTOR_SIZE;
+                if (!isAvailable()) return reject("Cannot run test, missing hardware.spiflash");
+
                 hardware.spiflash.enable();
                 local size = hardware.spiflash.size();
                 hardware.spiflash.disable();
-                local logger = SPIFlashLogger(start);
+
+                local start      = 2 * SPIFLASHLOGGER_SECTOR_SIZE;
+                local logger     = SPIFlashLogger(start);
                 local dimensions = logger.dimensions();
+
                 try {
                     assertEqualWrap(start, dimensions.start, "dimensions.start");
                     assertEqualWrap(size, dimensions.end, "dimensions.end");
                     assertEqualWrap(size - start, dimensions.len, "dimensions.len");
                     assertEqualWrap(size, dimensions.size, "dimensions.size");
                 } catch (ex) {
-                    reject(ex);
-                    return;
+                    return reject(ex);
                 }
-                resolve();
+                
+                return resolve();
             } catch (ex) {
-                reject("Unexpected error: " + ex);
+                return reject("Unexpected error: " + ex);
             }
         }.bindenv(this));
     }
@@ -90,28 +90,27 @@ class DimensionsTestCase extends Core {
     function testEndValueSetup() {
         return Promise(function(resolve, reject) {
             try {
-                if (!isAvailable()) {
-                    resolve();
-                    return;
-                }
-                local end = 2 * SPIFLASHLOGGER_SECTOR_SIZE;
+                if (!isAvailable()) return reject("Cannot run test, missing hardware.spiflash");
+
                 hardware.spiflash.enable();
                 local size = hardware.spiflash.size();
                 hardware.spiflash.disable();
-                local logger = SPIFlashLogger(null, end);
+
+                local end        = 2 * SPIFLASHLOGGER_SECTOR_SIZE;
+                local logger     = SPIFlashLogger(null, end);
                 local dimensions = logger.dimensions();
+
                 try {
                     assertEqualWrap(0, dimensions.start, "dimensions.start");
                     assertEqualWrap(end, dimensions.end, "dimensions.end");
                     assertEqualWrap(end, dimensions.len, "dimensions.len");
                     assertEqualWrap(size, dimensions.size, "dimensions.size");
                 } catch (ex) {
-                    reject(ex);
-                    return;
+                    return reject(ex);
                 }
-                resolve();
+                return resolve();
             } catch (ex) {
-                reject("Unexpected error: " + ex);
+                return reject("Unexpected error: " + ex);
             }
         }.bindenv(this));
     }
@@ -119,29 +118,29 @@ class DimensionsTestCase extends Core {
     function testStartAndEndValuesSetup() {
         return Promise(function(resolve, reject) {
             try {
-                if (!isAvailable()) {
-                    resolve();
-                    return;
-                }
-                local start = 2 * SPIFLASHLOGGER_SECTOR_SIZE;
-                local end = 8 * SPIFLASHLOGGER_SECTOR_SIZE;
+                if (!isAvailable()) return reject("Cannot run test, missing hardware.spiflash");
+
                 hardware.spiflash.enable();
                 local size = hardware.spiflash.size();
                 hardware.spiflash.disable();
-                local logger = SPIFlashLogger(start, end);
+
+                local start      = 2 * SPIFLASHLOGGER_SECTOR_SIZE;
+                local end        = 8 * SPIFLASHLOGGER_SECTOR_SIZE;
+                local logger     = SPIFlashLogger(start, end);
                 local dimensions = logger.dimensions();
+
                 try {
                     assertEqualWrap(start, dimensions.start, "dimensions.start");
                     assertEqualWrap(end, dimensions.end, "dimensions.end");
                     assertEqualWrap(end - start, dimensions.len, "dimensions.len");
                     assertEqualWrap(size, dimensions.size, "dimensions.size");
                 } catch (ex) {
-                    reject(ex);
-                    return;
+                    return reject(ex);
                 }
-                resolve();
+                
+                return resolve();
             } catch (ex) {
-                reject("Unexpected error: " + ex);
+                return reject("Unexpected error: " + ex);
             }
         }.bindenv(this));
     }
