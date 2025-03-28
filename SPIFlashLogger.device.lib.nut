@@ -45,7 +45,7 @@ const SPIFLASHLOGGER_SECTOR_CLEAN = 0xFF;       // Flag for clean sectors
 // it begins overwriting the oldest logs.
 class SPIFlashLogger {
 
-    static VERSION = "2.2.0";
+    static VERSION = "2.2.1";
 
     _flash = null;      // hardware.spiflash or an object with an equivalent interface
     _serializer = null; // github.com/electricimp/serializer (or an object with an equivalent interface)
@@ -385,6 +385,10 @@ class SPIFlashLogger {
                     if (step < 0) seekTo = -4;
                     else seekTo = 0
 
+                    if (obj == null) {
+                        server.error("Skipping object at " + spiAddr + " due to invalid marker.");
+                        return cont(true);
+                    }
                     return onData(obj, spiAddr, cont.bindenv(this));
 
                 } else {
@@ -507,7 +511,8 @@ class SPIFlashLogger {
         _disable();
 
         if (marker != SPIFLASHLOGGER_OBJECT_MARKER) {
-            throw "Error, marker not found at " + pos;
+        //    throw "Error, marker not found at " + pos;
+        return null;  // Return null instead of throwing an exception
         }
 
         local serialised = blob(SPIFLASHLOGGER_OBJECT_HDR_SIZE + len);
@@ -690,7 +695,7 @@ class SPIFlashLogger {
             if (!(map & mask)) count++;
             else break;
         }
-        return count+1;// TODO: why was this plus one necessary?
+        return count;
     }
 
     //
@@ -729,7 +734,7 @@ class SPIFlashLogger {
         _nextSectorId = lastSector.id;
         // increase sector id
         _getNextSectorId();
-        for (local bit = 1; bit <= 16; bit++) {
+        for (local bit = 0; bit <= 15; bit++) {
             local mod = 1 << bit;
             _atPos += (~lastSector.map & mod) ? SPIFLASHLOGGER_CHUNK_SIZE : 0;
         }
